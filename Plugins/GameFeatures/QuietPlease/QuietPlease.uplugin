@@ -15,13 +15,6 @@
 	"IsBetaVersion": false,
 	"IsExperimentalVersion": false,
 	"Installed": false,
-	"Modules": [
-		{
-			"Name": "QuietPleaseRuntime",
-			"Type": "Runtime",
-			"LoadingPhase": "Default"
-		}
-	],
 	"ExplicitlyLoaded": true,
 	"BuiltInInitialFeatureState": "Active",
 	"Plugins": [
