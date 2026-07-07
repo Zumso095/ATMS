@@ -33,6 +33,10 @@
 		{
 			"Name": "SurvivalCore",
 			"Enabled": true
+		},
+		{
+			"Name": "QuietPlease",
+			"Enabled": true
 		}
 	]
 }
