@@ -31,7 +31,7 @@ public:
 	void SetLayout();
 	void PushContentToLayer(FGameplayTag Layer, TSubclassOf<ULomCommonActivatableWidget> WidgetClass, bool Reset, bool LockedForPop);
 	void PopFromLayer(FGameplayTag Layer, bool ForcePop);
-	
+	TObjectPtr<ULomGameUIPrimaryLayout> GetCurrentLayout();
 
 private:
 	TObjectPtr<ULomGameUIPrimaryLayout> currentLayout;

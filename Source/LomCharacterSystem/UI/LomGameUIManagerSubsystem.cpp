@@ -12,6 +12,7 @@ void ULomGameUIManagerSubsystem::Initialize(FSubsystemCollectionBase& Collection
 	{
 		return;
 	}*/
+	//UE_LOG(LogTemp, Error, TEXT("UIManagerSubsystem: initialization"));
 
 	const ULomGameUISettings* settings = GetDefault<ULomGameUISettings>();
 	TSubclassOf<ULomGameUIPolicy> configClass = settings->GameUIPolicy.TryLoadClass<ULomGameUIPolicy>();
@@ -38,14 +39,31 @@ void ULomGameUIManagerSubsystem::PostInitialize()
 void ULomGameUIManagerSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 {
 	Super::OnWorldBeginPlay(InWorld);
+	//It must be done because servertravel crash the game because it can't find player controller or something else
+	//FTimerHandle timerHandle;
+	//GetWorld()->GetTimerManager().SetTimer(timerHandle,this, &ULomGameUIManagerSubsystem::AddLayout, 1.f, false);
+
 	
-	currentGameUIPolicy->SetLayout();
+		currentGameUIPolicy->SetLayout();
+
+	
+
 }
 
 void ULomGameUIManagerSubsystem::PushContentToLayer(FGameplayTag layer, TSubclassOf<ULomCommonActivatableWidget> widgetClass, bool reset, bool lockedForPop)
 {
-	currentGameUIPolicy->PushContentToLayer(layer, widgetClass, reset, lockedForPop);
-	LayoutAdded();
+	//if (!currentGameUIPolicy->GetCurrentLayout())
+	//{
+	//	currentGameUIPolicy->SetLayout();
+
+	//}
+	if (currentGameUIPolicy->GetCurrentLayout())
+	{
+		currentGameUIPolicy->PushContentToLayer(layer, widgetClass, reset, lockedForPop);
+		LayoutAdded();
+
+	}
+
 }
 
 UUserWidget* ULomGameUIManagerSubsystem::PushContentToAnchor(FGameplayTag AnchorTag, TSubclassOf<UUserWidget> WidgetClass)
@@ -141,6 +159,12 @@ void ULomGameUIManagerSubsystem::LayoutAdded()
 
 	}
 	
+}
+
+void ULomGameUIManagerSubsystem::AddLayout()
+{
+	currentGameUIPolicy->SetLayout();
+
 }
 
 void ULomGameUIManagerSubsystem::RemoveWidget(UUserWidget* Widget)

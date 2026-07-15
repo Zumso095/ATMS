@@ -52,7 +52,7 @@ public:
 	void UnregisterAnchorPoint(ULomUIAnchorPoint* AnchorPoint);
 
 	void LayoutAdded();
-
+	void AddLayout();
 
 	//void GetGameUIPolicy();
 

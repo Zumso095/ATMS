@@ -87,9 +87,13 @@ void UGameFeatureAction_AddInputMap::AddInputMapping(APlayerController* playerCo
 		UEnhancedInputLocalPlayerSubsystem* enhancedInputSubsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(lc);
 		for (UInputMappingContext* mapping : InputMappings)
 		{
+			// when I use servertravel it cast's crash
+			if (enhancedInputSubsystem)
+			{
+				enhancedInputSubsystem->AddMappingContext(mapping, 0);
+				//UE_LOG(LogTemp, Error, TEXT("input mapping added == %s"), *mapping->GetName());
+			}
 			
-			enhancedInputSubsystem->AddMappingContext(mapping, 0);
-			//UE_LOG(LogTemp, Error, TEXT("input mapping added == %s"), *mapping->GetName());
 
 		}
 	}

@@ -5,6 +5,8 @@
 #include "LomGameUIPrimaryLayout.h"
 #include "LomGameUIManagerSubsystem.h"
 
+#include "Kismet/GameplayStatics.h"
+
 
 UWorld* ULomGameUIPolicy::GetWorld() const
 {
@@ -20,8 +22,32 @@ void ULomGameUIPolicy::SetLayout(ULocalPlayer* newLocalPlayer)
 
 void ULomGameUIPolicy::SetLayout()
 {
-	currentLayout = CreateWidget<ULomGameUIPrimaryLayout>(GetWorld()->GetFirstPlayerController(), DefaultLayoutClass);
-	currentLayout->AddToPlayerScreen(100);
+	APlayerController* pc = UGameplayStatics::GetPlayerController(GetWorld(), 0); //GetWorld()->GetFirstPlayerController();
+	UGameplayStatics::GetPlayerController(GetWorld(), 0);
+	if (pc)
+	{
+		UE_LOG(LogTemp, Error, TEXT("plaer controller name = %s"), *pc->GetName());
+		currentLayout = CreateWidget<ULomGameUIPrimaryLayout>(pc, DefaultLayoutClass);
+		if (currentLayout)
+		{
+			UE_LOG(LogTemp, Error, TEXT("currentLayout spawned normally"));
+
+			currentLayout->AddToPlayerScreen(100);
+
+		}
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT("currentLayout not valid null"));
+
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("plaer controller nullptr"));
+
+	}
+	
+	
 	//GetWorld()->GetFirstPlayerController()->SetInputMode(FInputModeDataBase)
 	//UE_LOG(LogTemp, Error, TEXT("%s"), TEXT("layout setted"));
 
@@ -36,4 +62,9 @@ void ULomGameUIPolicy::PushContentToLayer(FGameplayTag Layer, TSubclassOf<ULomCo
 void ULomGameUIPolicy::PopFromLayer(FGameplayTag Layer, bool forcePop)
 {
 	currentLayout->PopFromLayer(Layer,forcePop);
+}
+
+TObjectPtr<ULomGameUIPrimaryLayout> ULomGameUIPolicy::GetCurrentLayout()
+{
+	return currentLayout;
 }
