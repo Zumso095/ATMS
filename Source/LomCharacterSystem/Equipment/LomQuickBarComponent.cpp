@@ -119,7 +119,7 @@ int32 ULomQuickBarComponent::AddItemToSlotByIndex(ULomInventoryItemInstance* Inv
 {
 	if (Index <= Slots.Num())
 	{
-		Slots.Insert(InventoryItemInstance, Index);
+		Slots[Index] = InventoryItemInstance;
 		NotifySlotAdded.Broadcast(InventoryItemInstance, Index);
 		return Index;
 
