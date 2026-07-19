@@ -263,6 +263,10 @@
 		{
 			"Name": "AnalyticsBlueprintLibrary",
 			"Enabled": true
+		},
+		{
+			"Name": "MassCrowd",
+			"Enabled": true
 		}
 	]
 }
