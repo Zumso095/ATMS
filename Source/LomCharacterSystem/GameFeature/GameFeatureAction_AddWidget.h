@@ -62,7 +62,7 @@ private:
 	struct FChangeStateHandle
 	{
 		FDelegateHandle DelegateHandle;
-		TSharedPtr<FComponentRequestHandle> RequestHandles;
+		TArray<TSharedPtr<FComponentRequestHandle>> RequestHandles;
 
 	};
 	TMap<FGameFeatureStateChangeContext, FChangeStateHandle> StateChangeHandles;

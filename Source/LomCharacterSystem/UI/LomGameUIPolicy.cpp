@@ -26,24 +26,24 @@ void ULomGameUIPolicy::SetLayout()
 	UGameplayStatics::GetPlayerController(GetWorld(), 0);
 	if (pc)
 	{
-		UE_LOG(LogTemp, Error, TEXT("plaer controller name = %s"), *pc->GetName());
+		//UE_LOG(LogTemp, Error, TEXT("plaer controller name = %s"), *pc->GetName());
 		currentLayout = CreateWidget<ULomGameUIPrimaryLayout>(pc, DefaultLayoutClass);
 		if (currentLayout)
 		{
-			UE_LOG(LogTemp, Error, TEXT("currentLayout spawned normally"));
+			//UE_LOG(LogTemp, Error, TEXT("currentLayout spawned normally"));
 
 			currentLayout->AddToPlayerScreen(100);
 
 		}
 		else
 		{
-			UE_LOG(LogTemp, Error, TEXT("currentLayout not valid null"));
+			//UE_LOG(LogTemp, Error, TEXT("currentLayout not valid null"));
 
 		}
 	}
 	else
 	{
-		UE_LOG(LogTemp, Error, TEXT("plaer controller nullptr"));
+		//UE_LOG(LogTemp, Error, TEXT("plaer controller nullptr"));
 
 	}
 	

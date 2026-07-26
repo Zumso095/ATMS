@@ -185,7 +185,7 @@ void ULomGameModeManagerComponent::ActivateActions(TArray<UGameFeatureAction*>& 
 
 		if (action)
 		{
-			//UE_LOG(LogTemp, Error, TEXT("action"));
+			//UE_LOG(LogTemp, Error, TEXT("activating action by name == %s"),*action->GetName());
 
 			action->OnGameFeatureRegistering();
 			action->OnGameFeatureLoading();
