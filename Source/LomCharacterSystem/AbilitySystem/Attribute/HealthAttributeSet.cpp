@@ -68,12 +68,26 @@ void UHealthAttributeSet::OnRep_HealthMax(FGameplayAttributeData& value)
 
 }
 
+void UHealthAttributeSet::OnRep_Mana(FGameplayAttributeData& value)
+{
+	GAMEPLAYATTRIBUTE_REPNOTIFY(UHealthAttributeSet, Mana, value);
+}
+
+void UHealthAttributeSet::OnRep_ManaMax(FGameplayAttributeData& value)
+{
+	GAMEPLAYATTRIBUTE_REPNOTIFY(UHealthAttributeSet, ManaMax, value);
+
+}
+
 void UHealthAttributeSet::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME_CONDITION_NOTIFY(UHealthAttributeSet, Health, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(UHealthAttributeSet, HealthMax, COND_None, REPNOTIFY_Always);
+
+	DOREPLIFETIME_CONDITION_NOTIFY(UHealthAttributeSet, Mana, COND_None, REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION_NOTIFY(UHealthAttributeSet, ManaMax, COND_None, REPNOTIFY_Always);
 
 	
 }

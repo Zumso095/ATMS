@@ -21,6 +21,8 @@ public:
 
     ATTRIBUTE_ACCESSORS(UHealthAttributeSet, Health);
     ATTRIBUTE_ACCESSORS(UHealthAttributeSet, HealthMax);
+    ATTRIBUTE_ACCESSORS(UHealthAttributeSet, Mana);
+    ATTRIBUTE_ACCESSORS(UHealthAttributeSet, ManaMax);
 
     virtual void PostGameplayEffectExecute(const struct FGameplayEffectModCallbackData& Data) override;
     virtual bool PreGameplayEffectExecute(struct FGameplayEffectModCallbackData& Data) override;
@@ -37,14 +39,25 @@ protected:
     UFUNCTION()
     void OnRep_HealthMax(FGameplayAttributeData& value);
 
+    UFUNCTION()
+    void OnRep_Mana(FGameplayAttributeData& value);
+
+    UFUNCTION()
+    void OnRep_ManaMax(FGameplayAttributeData& value);
+
 private:
 
     UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_Health, meta = (AllowPrivateAccess = true))
     FGameplayAttributeData Health;
 
-    UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_Health, meta = (AllowPrivateAccess = true))
+    UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_HealthMax, meta = (AllowPrivateAccess = true))
     FGameplayAttributeData HealthMax;
 
+    UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_Mana, meta = (AllowPrivateAccess = true))
+    FGameplayAttributeData Mana;
+
+    UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_ManaMax, meta = (AllowPrivateAccess = true))
+    FGameplayAttributeData ManaMax;
 
     float healthBeforeChange = 0;
 };
