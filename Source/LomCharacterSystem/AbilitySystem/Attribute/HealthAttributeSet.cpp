@@ -79,6 +79,22 @@ void UHealthAttributeSet::OnRep_ManaMax(FGameplayAttributeData& value)
 
 }
 
+void UHealthAttributeSet::PreAttributeChange(
+	const FGameplayAttribute& Attribute,
+	float& NewValue)
+{
+	Super::PreAttributeChange(Attribute, NewValue);
+
+	if (Attribute == GetManaAttribute())
+	{
+		NewValue = FMath::Clamp(
+			NewValue,
+			0.0f,
+			GetManaMax()
+		);
+	}
+}
+
 void UHealthAttributeSet::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
