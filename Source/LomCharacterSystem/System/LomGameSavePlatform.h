@@ -28,4 +28,6 @@ public:
 
 	virtual void SaveBool(const FString& Key, bool Value) {};
 	virtual bool GetBool(const FString& Key) { return false; };
+
+	virtual bool HasKey(const FString& Key) { return false; };
 };

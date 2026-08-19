@@ -140,3 +140,8 @@ bool ULomGameSaveOffline::GetBool(const FString& Key)
 	}
 	return false;
 }
+
+bool ULomGameSaveOffline::HasKey(const FString& Key)
+{
+	return UGameplayStatics::DoesSaveGameExist(Key, 0);
+}
