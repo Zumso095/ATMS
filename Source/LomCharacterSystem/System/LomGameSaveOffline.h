@@ -73,5 +73,8 @@ public:
 
 
 	virtual bool GetBool(const FString& Key) override;
+
+
+	virtual bool HasKey(const FString& Key) override;
 	
 };

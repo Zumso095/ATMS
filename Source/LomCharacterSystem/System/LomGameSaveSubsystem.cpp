@@ -57,9 +57,16 @@ bool ULomGameSaveSubsystem::GetBool(const FString& Key, TSubclassOf<ULomGameSave
 	return platform->GetBool(Key);
 }
 
+bool ULomGameSaveSubsystem::HasKey(const FString& Key, TSubclassOf<ULomGameSavePlatform> Platform)
+{
+	ULomGameSavePlatform* platform = GetSaveGamePlatform(Platform);
+
+	return platform->HasKey(Key);
+}
+
 ULomGameSavePlatform* ULomGameSaveSubsystem::GetSaveGamePlatform(TSubclassOf<ULomGameSavePlatform> PlatformClass)
 {
-	ULomGameSavePlatform* platform = saveGamePlatforms.FindOrAdd(PlatformClass);
+	TObjectPtr<ULomGameSavePlatform>& platform = saveGamePlatforms.FindOrAdd(PlatformClass);
 	if (platform == nullptr)
 	{
 		if (PlatformClass) 
@@ -69,7 +76,7 @@ ULomGameSavePlatform* ULomGameSaveSubsystem::GetSaveGamePlatform(TSubclassOf<ULo
 		}
 		else 
 		{
-			platform = NewObject<ULomGameSaveOffline>();
+			platform = NewObject<ULomGameSaveOffline>(this);
 			UE_LOG(LogTemp,Error,TEXT("Missing PlatformClass. It was set default Offline platfom"))
 
 		}

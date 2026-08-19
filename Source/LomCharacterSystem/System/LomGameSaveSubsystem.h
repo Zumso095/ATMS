@@ -46,6 +46,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	bool GetBool(const FString& Key, TSubclassOf<ULomGameSavePlatform> Platform);
 
+	UFUNCTION(BlueprintCallable)
+	bool HasKey(const FString& Key, TSubclassOf<ULomGameSavePlatform> Platform);
+
 private:
 	UPROPERTY()
 	TMap<TSubclassOf<ULomGameSavePlatform>, TObjectPtr<ULomGameSavePlatform>> saveGamePlatforms;
