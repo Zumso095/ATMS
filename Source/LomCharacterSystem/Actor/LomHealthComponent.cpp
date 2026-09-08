@@ -3,7 +3,6 @@
 
 #include "Actor/LomHealthComponent.h"
 #include "AbilitySystem/Attribute/HealthAttributeSet.h"
-#include "AbilitySystem/Attribute/StaminaAttributeSet.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "NativeGameplayTags.h"
@@ -50,117 +49,78 @@ void ULomHealthComponent::BeginPlay()
 		}
 	}
 
-	// Server-side bindings above stay authority-only. The cosmetic events below have to run on the
-	// machine that hears the sound, so they are bound separately and driven by attribute replication.
-	BindLocalAttributeEvents();
+	// The bindings above are authority-only. Clients get nothing from them, so they listen to
+	// attribute replication instead and raise the same OnHealthChangedD event.
+	BindClientHealthEvents();
 }
 
 void ULomHealthComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-	UnbindLocalAttributeEvents();
+	UnbindClientHealthEvents();
 
 	Super::EndPlay(EndPlayReason);
 }
 
-void ULomHealthComponent::BindLocalAttributeEvents()
+void ULomHealthComponent::BindClientHealthEvents()
 {
-	// A dedicated server has no local pawn and plays nothing.
-	if (GetNetMode() == NM_DedicatedServer)
-	{
-		return;
-	}
-
 	AActor* Owner = GetOwner();
 	if (!Owner)
 	{
 		return;
 	}
 
-	LocalASC = Owner->FindComponentByClass<UAbilitySystemComponent>();
-	if (!LocalASC)
+	// Authority already broadcasts OnHealthChangedD from the attribute set callback, with the full
+	// Instigator / EffectSpec. Skipping authority here is what keeps a listen-server host from
+	// raising the event twice for its own pawn.
+	if (Owner->HasAuthority())
+	{
+		return;
+	}
+
+	ClientASC = Owner->FindComponentByClass<UAbilitySystemComponent>();
+	if (!ClientASC)
 	{
 		return;
 	}
 
 	// GetGameplayAttributeValueChangeDelegate only touches a map keyed by the attribute, so it is
-	// safe before the attribute sets have replicated in.
-	HealthChangedHandle = LocalASC->GetGameplayAttributeValueChangeDelegate(UHealthAttributeSet::GetHealthAttribute())
-		.AddUObject(this, &ULomHealthComponent::HandleHealthValueChanged);
-
-	StaminaChangedHandle = LocalASC->GetGameplayAttributeValueChangeDelegate(UStaminaAttributeSet::GetStaminaAttribute())
-		.AddUObject(this, &ULomHealthComponent::HandleStaminaValueChanged);
-
-	ManaChangedHandle = LocalASC->GetGameplayAttributeValueChangeDelegate(UHealthAttributeSet::GetManaAttribute())
-		.AddUObject(this, &ULomHealthComponent::HandleManaValueChanged);
-
-	// Seed the latches from the current values. On a client that has not received the attribute sets
-	// yet every value reads as 0, so the attributes start out latched as depleted and the first
-	// replication of the real values only clears the latch instead of firing a bogus event.
-	bHealthDepleted = LocalASC->GetNumericAttribute(UHealthAttributeSet::GetHealthAttribute()) <= HealthDepletedThreshold;
-	bStaminaDepleted = LocalASC->GetNumericAttribute(UStaminaAttributeSet::GetStaminaAttribute()) <= StaminaDepletedThreshold;
-	bManaDepleted = LocalASC->GetNumericAttribute(UHealthAttributeSet::GetManaAttribute()) <= ManaDepletedThreshold;
+	// safe to bind before the attribute sets have replicated in.
+	ClientHealthChangedHandle = ClientASC->GetGameplayAttributeValueChangeDelegate(UHealthAttributeSet::GetHealthAttribute())
+		.AddUObject(this, &ULomHealthComponent::HandleHealthReplicated);
 }
 
-void ULomHealthComponent::UnbindLocalAttributeEvents()
+void ULomHealthComponent::UnbindClientHealthEvents()
 {
-	if (LocalASC)
+	if (ClientASC)
 	{
-		LocalASC->GetGameplayAttributeValueChangeDelegate(UHealthAttributeSet::GetHealthAttribute()).Remove(HealthChangedHandle);
-		LocalASC->GetGameplayAttributeValueChangeDelegate(UStaminaAttributeSet::GetStaminaAttribute()).Remove(StaminaChangedHandle);
-		LocalASC->GetGameplayAttributeValueChangeDelegate(UHealthAttributeSet::GetManaAttribute()).Remove(ManaChangedHandle);
+		ClientASC->GetGameplayAttributeValueChangeDelegate(UHealthAttributeSet::GetHealthAttribute()).Remove(ClientHealthChangedHandle);
 	}
 
-	HealthChangedHandle.Reset();
-	StaminaChangedHandle.Reset();
-	ManaChangedHandle.Reset();
-	LocalASC = nullptr;
+	ClientHealthChangedHandle.Reset();
+	ClientASC = nullptr;
 }
 
-bool ULomHealthComponent::IsLocalCosmeticContext() const
+void ULomHealthComponent::HandleHealthReplicated(const FOnAttributeChangeData& Data)
 {
-	// Checked at broadcast time rather than at bind time: on a client the pawn replicates before its
-	// controller, so IsLocallyControlled is still false while BeginPlay runs.
+	// Cosmetics only, and only for the local player. Checked here rather than at bind time because
+	// a client replicates the pawn before its controller, so IsLocallyControlled still lies during
+	// BeginPlay.
 	const APawn* OwnerPawn = Cast<APawn>(GetOwner());
-
-	return OwnerPawn != nullptr && OwnerPawn->IsLocallyControlled();
-}
-
-void ULomHealthComponent::HandleHealthValueChanged(const FOnAttributeChangeData& Data)
-{
-	const float Delta = Data.OldValue - Data.NewValue;
-	if (Delta >= DamageTakenMinDelta && IsLocalCosmeticContext())
+	if (!OwnerPawn || !OwnerPawn->IsLocallyControlled())
 	{
-		OnDamageTakenLocal.Broadcast(Delta, Data.NewValue);
-	}
-
-	UpdateDepletedLatch(Data.NewValue, HealthDepletedThreshold, bHealthDepleted, OnHealthDepletedLocal);
-}
-
-void ULomHealthComponent::HandleStaminaValueChanged(const FOnAttributeChangeData& Data)
-{
-	UpdateDepletedLatch(Data.NewValue, StaminaDepletedThreshold, bStaminaDepleted, OnStaminaDepletedLocal);
-}
-
-void ULomHealthComponent::HandleManaValueChanged(const FOnAttributeChangeData& Data)
-{
-	UpdateDepletedLatch(Data.NewValue, ManaDepletedThreshold, bManaDepleted, OnManaDepletedLocal);
-}
-
-void ULomHealthComponent::UpdateDepletedLatch(float NewValue, float Threshold, bool& bLatch, FOnLocalAttributeDepletedDelegate& Event)
-{
-	const bool bDepleted = NewValue <= Threshold;
-	if (bDepleted == bLatch)
-	{
-		// Keeps periodic costs such as GE_J_Sprint_Cost (0.1 s) from spamming the event.
 		return;
 	}
 
-	bLatch = bDepleted;
-
-	if (bDepleted && IsLocalCosmeticContext())
+	// Same sign convention as the authority path, which passes the GameplayEffect modifier
+	// magnitude: negative for damage, positive for healing.
+	const float Magnitude = Data.NewValue - Data.OldValue;
+	if (FMath::IsNearlyZero(Magnitude))
 	{
-		Event.Broadcast();
+		return;
 	}
+
+	// Instigator and effect causer exist only in the GameplayEffect callback on the server.
+	OnHealthChangedD.Broadcast(nullptr, GetOwner(), Magnitude);
 }
 
 
