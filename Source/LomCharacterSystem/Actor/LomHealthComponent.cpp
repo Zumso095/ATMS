@@ -3,6 +3,8 @@
 
 #include "Actor/LomHealthComponent.h"
 #include "AbilitySystem/Attribute/HealthAttributeSet.h"
+#include "AbilitySystem/Attribute/StaminaAttributeSet.h"
+#include "GameFramework/Pawn.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "NativeGameplayTags.h"
 #include "Net/UnrealNetwork.h"
@@ -46,6 +48,118 @@ void ULomHealthComponent::BeginPlay()
 
 			}
 		}
+	}
+
+	// Server-side bindings above stay authority-only. The cosmetic events below have to run on the
+	// machine that hears the sound, so they are bound separately and driven by attribute replication.
+	BindLocalAttributeEvents();
+}
+
+void ULomHealthComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	UnbindLocalAttributeEvents();
+
+	Super::EndPlay(EndPlayReason);
+}
+
+void ULomHealthComponent::BindLocalAttributeEvents()
+{
+	// A dedicated server has no local pawn and plays nothing.
+	if (GetNetMode() == NM_DedicatedServer)
+	{
+		return;
+	}
+
+	AActor* Owner = GetOwner();
+	if (!Owner)
+	{
+		return;
+	}
+
+	LocalASC = Owner->FindComponentByClass<UAbilitySystemComponent>();
+	if (!LocalASC)
+	{
+		return;
+	}
+
+	// GetGameplayAttributeValueChangeDelegate only touches a map keyed by the attribute, so it is
+	// safe before the attribute sets have replicated in.
+	HealthChangedHandle = LocalASC->GetGameplayAttributeValueChangeDelegate(UHealthAttributeSet::GetHealthAttribute())
+		.AddUObject(this, &ULomHealthComponent::HandleHealthValueChanged);
+
+	StaminaChangedHandle = LocalASC->GetGameplayAttributeValueChangeDelegate(UStaminaAttributeSet::GetStaminaAttribute())
+		.AddUObject(this, &ULomHealthComponent::HandleStaminaValueChanged);
+
+	ManaChangedHandle = LocalASC->GetGameplayAttributeValueChangeDelegate(UHealthAttributeSet::GetManaAttribute())
+		.AddUObject(this, &ULomHealthComponent::HandleManaValueChanged);
+
+	// Seed the latches from the current values. On a client that has not received the attribute sets
+	// yet every value reads as 0, so the attributes start out latched as depleted and the first
+	// replication of the real values only clears the latch instead of firing a bogus event.
+	bHealthDepleted = LocalASC->GetNumericAttribute(UHealthAttributeSet::GetHealthAttribute()) <= HealthDepletedThreshold;
+	bStaminaDepleted = LocalASC->GetNumericAttribute(UStaminaAttributeSet::GetStaminaAttribute()) <= StaminaDepletedThreshold;
+	bManaDepleted = LocalASC->GetNumericAttribute(UHealthAttributeSet::GetManaAttribute()) <= ManaDepletedThreshold;
+}
+
+void ULomHealthComponent::UnbindLocalAttributeEvents()
+{
+	if (LocalASC)
+	{
+		LocalASC->GetGameplayAttributeValueChangeDelegate(UHealthAttributeSet::GetHealthAttribute()).Remove(HealthChangedHandle);
+		LocalASC->GetGameplayAttributeValueChangeDelegate(UStaminaAttributeSet::GetStaminaAttribute()).Remove(StaminaChangedHandle);
+		LocalASC->GetGameplayAttributeValueChangeDelegate(UHealthAttributeSet::GetManaAttribute()).Remove(ManaChangedHandle);
+	}
+
+	HealthChangedHandle.Reset();
+	StaminaChangedHandle.Reset();
+	ManaChangedHandle.Reset();
+	LocalASC = nullptr;
+}
+
+bool ULomHealthComponent::IsLocalCosmeticContext() const
+{
+	// Checked at broadcast time rather than at bind time: on a client the pawn replicates before its
+	// controller, so IsLocallyControlled is still false while BeginPlay runs.
+	const APawn* OwnerPawn = Cast<APawn>(GetOwner());
+
+	return OwnerPawn != nullptr && OwnerPawn->IsLocallyControlled();
+}
+
+void ULomHealthComponent::HandleHealthValueChanged(const FOnAttributeChangeData& Data)
+{
+	const float Delta = Data.OldValue - Data.NewValue;
+	if (Delta >= DamageTakenMinDelta && IsLocalCosmeticContext())
+	{
+		OnDamageTakenLocal.Broadcast(Delta, Data.NewValue);
+	}
+
+	UpdateDepletedLatch(Data.NewValue, HealthDepletedThreshold, bHealthDepleted, OnHealthDepletedLocal);
+}
+
+void ULomHealthComponent::HandleStaminaValueChanged(const FOnAttributeChangeData& Data)
+{
+	UpdateDepletedLatch(Data.NewValue, StaminaDepletedThreshold, bStaminaDepleted, OnStaminaDepletedLocal);
+}
+
+void ULomHealthComponent::HandleManaValueChanged(const FOnAttributeChangeData& Data)
+{
+	UpdateDepletedLatch(Data.NewValue, ManaDepletedThreshold, bManaDepleted, OnManaDepletedLocal);
+}
+
+void ULomHealthComponent::UpdateDepletedLatch(float NewValue, float Threshold, bool& bLatch, FOnLocalAttributeDepletedDelegate& Event)
+{
+	const bool bDepleted = NewValue <= Threshold;
+	if (bDepleted == bLatch)
+	{
+		// Keeps periodic costs such as GE_J_Sprint_Cost (0.1 s) from spamming the event.
+		return;
+	}
+
+	bLatch = bDepleted;
+
+	if (bDepleted && IsLocalCosmeticContext())
+	{
+		Event.Broadcast();
 	}
 }
 
