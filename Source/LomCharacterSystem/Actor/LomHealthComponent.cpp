@@ -3,6 +3,7 @@
 
 #include "Actor/LomHealthComponent.h"
 #include "AbilitySystem/Attribute/HealthAttributeSet.h"
+#include "GameFramework/Pawn.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "NativeGameplayTags.h"
 #include "Net/UnrealNetwork.h"
@@ -47,6 +48,79 @@ void ULomHealthComponent::BeginPlay()
 			}
 		}
 	}
+
+	// The bindings above are authority-only. Clients get nothing from them, so they listen to
+	// attribute replication instead and raise the same OnHealthChangedD event.
+	BindClientHealthEvents();
+}
+
+void ULomHealthComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	UnbindClientHealthEvents();
+
+	Super::EndPlay(EndPlayReason);
+}
+
+void ULomHealthComponent::BindClientHealthEvents()
+{
+	AActor* Owner = GetOwner();
+	if (!Owner)
+	{
+		return;
+	}
+
+	// Authority already broadcasts OnHealthChangedD from the attribute set callback, with the full
+	// Instigator / EffectSpec. Skipping authority here is what keeps a listen-server host from
+	// raising the event twice for its own pawn.
+	if (Owner->HasAuthority())
+	{
+		return;
+	}
+
+	ClientASC = Owner->FindComponentByClass<UAbilitySystemComponent>();
+	if (!ClientASC)
+	{
+		return;
+	}
+
+	// GetGameplayAttributeValueChangeDelegate only touches a map keyed by the attribute, so it is
+	// safe to bind before the attribute sets have replicated in.
+	ClientHealthChangedHandle = ClientASC->GetGameplayAttributeValueChangeDelegate(UHealthAttributeSet::GetHealthAttribute())
+		.AddUObject(this, &ULomHealthComponent::HandleHealthReplicated);
+}
+
+void ULomHealthComponent::UnbindClientHealthEvents()
+{
+	if (ClientASC)
+	{
+		ClientASC->GetGameplayAttributeValueChangeDelegate(UHealthAttributeSet::GetHealthAttribute()).Remove(ClientHealthChangedHandle);
+	}
+
+	ClientHealthChangedHandle.Reset();
+	ClientASC = nullptr;
+}
+
+void ULomHealthComponent::HandleHealthReplicated(const FOnAttributeChangeData& Data)
+{
+	// Cosmetics only, and only for the local player. Checked here rather than at bind time because
+	// a client replicates the pawn before its controller, so IsLocallyControlled still lies during
+	// BeginPlay.
+	const APawn* OwnerPawn = Cast<APawn>(GetOwner());
+	if (!OwnerPawn || !OwnerPawn->IsLocallyControlled())
+	{
+		return;
+	}
+
+	// Same sign convention as the authority path, which passes the GameplayEffect modifier
+	// magnitude: negative for damage, positive for healing.
+	const float Magnitude = Data.NewValue - Data.OldValue;
+	if (FMath::IsNearlyZero(Magnitude))
+	{
+		return;
+	}
+
+	// Instigator and effect causer exist only in the GameplayEffect callback on the server.
+	OnHealthChangedD.Broadcast(nullptr, GetOwner(), Magnitude);
 }
 
 

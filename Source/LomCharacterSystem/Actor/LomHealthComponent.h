@@ -66,4 +66,25 @@ public:
 
 	UPROPERTY(BlueprintAssignable)
 	FOnHealthChangedDelegate OnHealthChangedD;
+
+	// The authority block in BeginPlay never runs on a client, so OnHealthChangedD above is a
+	// server-only event as written. These bind the same event to attribute replication so the
+	// owning client gets it too. Attribute replication carries no Instigator / EffectSpec, so the
+	// client broadcast passes null for the instigator.
+
+protected:
+
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
+	void BindClientHealthEvents();
+	void UnbindClientHealthEvents();
+	void HandleHealthReplicated(const FOnAttributeChangeData& Data);
+
+private:
+
+	UPROPERTY(Transient)
+	TObjectPtr<UAbilitySystemComponent> ClientASC = nullptr;
+
+	FDelegateHandle ClientHealthChangedHandle;
+
 };
