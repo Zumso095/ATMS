@@ -20,7 +20,7 @@ void UHealthAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCall
 			OnDead.Broadcast(effectContextHandle.GetInstigator(), &Data.EffectSpec, Data.EvaluatedData.Magnitude, healthBeforeChange, GetHealth());
 
 		}
-		if ((Data.EvaluatedData.Magnitude + GetHealth()) > GetHealthMax())
+		if (GetHealth() > GetHealthMax())
 		{
 			SetHealth(GetHealthMax());
 			//UE_LOG(LogTemp, Error, TEXT("health = %f"), Data.EvaluatedData.Magnitude);
