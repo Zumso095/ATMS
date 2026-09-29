@@ -9,24 +9,29 @@ class FLifetimeProperty;
 
 void UHealthAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallbackData& Data)
 {
-	Super::PostGameplayEffectExecute(Data);
 	const FGameplayEffectContextHandle& effectContextHandle = Data.EffectSpec.GetEffectContext();
 	//UE_LOG(LogTemp, Error, TEXT("damage instigator = %s"), *effectContextHandle.GetInstigator()->GetName());
 	//UE_LOG(LogTemp, Error, TEXT("damage causer = %s"), *effectContextHandle.GetEffectCauser()->GetName());
 	
 	if (Data.EvaluatedData.Attribute == GetHealthAttribute())
 	{
-		// Snapshot before broadcasting: a death listener can apply another effect.
-		const float OldHealth = healthBeforeChange;
-		SetHealth(FMath::Clamp(GetHealth(), 0.0f, FMath::Max(0.0f, GetHealthMax())));
-		const float NewHealth = GetHealth();
-		if (OldHealth > 0.0f && NewHealth <= 0.0f)
+		if (GetHealth() <= 0)
 		{
-			OnDead.Broadcast(effectContextHandle.GetInstigator(), &Data.EffectSpec, Data.EvaluatedData.Magnitude, OldHealth, NewHealth);
+			OnDead.Broadcast(effectContextHandle.GetInstigator(), &Data.EffectSpec, Data.EvaluatedData.Magnitude, healthBeforeChange, GetHealth());
 
 		}
-		OnHealthChanged.Broadcast(effectContextHandle.GetInstigator(), &Data.EffectSpec, Data.EvaluatedData.Magnitude, OldHealth, NewHealth);
+		if (GetHealth() > GetHealthMax())
+		{
+			SetHealth(GetHealthMax());
+			//UE_LOG(LogTemp, Error, TEXT("health = %f"), Data.EvaluatedData.Magnitude);
 
+		}
+		OnHealthChanged.Broadcast(effectContextHandle.GetInstigator(), &Data.EffectSpec, Data.EvaluatedData.Magnitude,healthBeforeChange,GetHealth());
+
+	}
+	if (GetHealth() >= 100)
+	{
+		OnReset.Broadcast();
 	}
 
 
@@ -80,11 +85,7 @@ void UHealthAttributeSet::PreAttributeChange(
 {
 	
 
-	if (Attribute == GetHealthAttribute())
-	{
-		NewValue = FMath::Clamp(NewValue, 0.0f, FMath::Max(0.0f, GetHealthMax()));
-	}
-	else if (Attribute == GetManaAttribute())
+	if (Attribute == GetManaAttribute())
 	{
 		NewValue = FMath::Clamp(
 			NewValue,
@@ -93,17 +94,6 @@ void UHealthAttributeSet::PreAttributeChange(
 		);
 	}
 	Super::PreAttributeChange(Attribute, NewValue);
-}
-
-void UHealthAttributeSet::PostAttributeChange(const FGameplayAttribute& Attribute, float OldValue, float NewValue)
-{
-	Super::PostAttributeChange(Attribute, OldValue, NewValue);
-
-	// Also covers health restored directly through the ASC, without an executed effect.
-	if (Attribute == GetHealthAttribute() && OldValue <= 0.0f && NewValue > 0.0f)
-	{
-		OnReset.Broadcast();
-	}
 }
 
 void UHealthAttributeSet::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
