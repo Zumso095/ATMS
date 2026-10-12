@@ -63,7 +63,6 @@ public:
 
 	ULomAbilitySet* attachedAbilitySet;
 
-	TArray<UUserWidget*> addedWidgets;
 	//ULomAbilitySet* currentAbilitySet;
 	/*UPROPERTY(ReplicatedUsing = OnRep_AttachedInventoryItemInstance)
 	ULomInventoryItemInstance* attachedInventoryItemInstance;*/

@@ -16,7 +16,27 @@
  */
 DECLARE_DYNAMIC_DELEGATE(FOnLayoutAddedDelegate);
 
-UCLASS(config=Game)
+USTRUCT()
+struct FLomAnchorWidgetRequest
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	FGameplayTag AnchorTag;
+	UPROPERTY()
+	TSubclassOf<UUserWidget> WidgetClass;
+	UPROPERTY()
+	TObjectPtr<UUserWidget> Widget = nullptr;
+	UPROPERTY()
+	TWeakObjectPtr<ULomUIAnchorPoint> Anchor;
+	UPROPERTY()
+	TWeakObjectPtr<UObject> Owner;
+
+	bool bHasOwner = false;
+	bool bCreating = false;
+};
+
+UCLASS(BlueprintType, config=Game)
 class LOMCHARACTERSYSTEM_API ULomGameUIManagerSubsystem : public UWorldSubsystem
 {
 	GENERATED_BODY()
@@ -25,6 +45,7 @@ public:
 	FOnLayoutAddedDelegate OnLayoutAdded;
 
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
+	virtual void Deinitialize() override;
 	virtual void PostInitialize() override;
 	virtual void OnWorldBeginPlay(UWorld& InWorld) override;
 
@@ -37,6 +58,19 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	UUserWidget* PushContentToAnchor(FGameplayTag AnchorTag, TSubclassOf<UUserWidget> WidgetClass);
+
+	// The handle remains usable even when the anchor has not been constructed yet.
+	UFUNCTION(BlueprintCallable, Category = "UI", meta = (AdvancedDisplay = "Owner"))
+	FGuid RequestContentToAnchor(FGameplayTag AnchorTag, TSubclassOf<UUserWidget> WidgetClass, UObject* Owner = nullptr);
+
+	UFUNCTION(BlueprintCallable, Category = "UI")
+	void RemoveWidgetRequest(FGuid RequestHandle);
+
+	UFUNCTION(BlueprintCallable, Category = "UI")
+	void RemoveWidgetsForOwner(UObject* Owner);
+
+	UFUNCTION(BlueprintPure, Category = "UI")
+	UUserWidget* GetWidgetForRequest(FGuid RequestHandle) const;
 
 	UFUNCTION(BlueprintCallable)
 	void RemoveWidget(UUserWidget* Widget);
@@ -60,7 +94,10 @@ private:
 	UPROPERTY()
 	ULomGameUIPolicy* currentGameUIPolicy;
 	
-	TMap<FGameplayTag, ULomUIAnchorPoint*> anchorPoints;
-	TMap<FGameplayTag, TSubclassOf<UUserWidget>> waitingWidgetsForLayout;
-	TMap<UUserWidget*, ULomUIAnchorPoint*> addedWidgets;
+	UPROPERTY(Transient)
+	TMap<FGameplayTag, TWeakObjectPtr<ULomUIAnchorPoint>> anchorPoints;
+	UPROPERTY(Transient)
+	TMap<FGuid, FLomAnchorWidgetRequest> widgetRequests;
+
+	void TryCreateWidgetRequest(FGuid RequestHandle);
 };

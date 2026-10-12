@@ -7,17 +7,26 @@
 
 void ULomGameplayAbility_WithWidget::OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec)
 {
+	bWidgetsRemoved = false;
 	Super::OnGiveAbility(ActorInfo, Spec);
 
-	if (IsLocallyControlled() && !GetWorld()->IsNetMode(NM_DedicatedServer))
+	if (!bWidgetsRemoved && GetWorld() && IsLocallyControlled() && !GetWorld()->IsNetMode(NM_DedicatedServer))
 	{
 		ULomGameUIManagerSubsystem* uiManager = GetWorld()->GetSubsystem<ULomGameUIManagerSubsystem>();
+		if (!uiManager)
+		{
+			return;
+		}
 
 		for (TPair<FGameplayTag,TSubclassOf<UUserWidget>> widget : Widgets)
 		{
+			if (bWidgetsRemoved)
+			{
+				break;
+			}
 			if (widget.Key.IsValid() && widget.Value)
 			{
-				addedWidgets.Add(uiManager->PushContentToAnchor(widget.Key, widget.Value));
+				uiManager->RequestContentToAnchor(widget.Key, widget.Value, this);
 			}
 		}
 	}
@@ -25,15 +34,6 @@ void ULomGameplayAbility_WithWidget::OnGiveAbility(const FGameplayAbilityActorIn
 
 void ULomGameplayAbility_WithWidget::OnRemoveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec)
 {
-	if (IsLocallyControlled() && !GetWorld()->IsNetMode(NM_DedicatedServer))
-	{
-		ULomGameUIManagerSubsystem* uiManager = GetWorld()->GetSubsystem<ULomGameUIManagerSubsystem>();
-
-
-		for (UUserWidget* widget : addedWidgets)
-		{
-			uiManager->RemoveWidget(widget);
-		}
-	}
+	bWidgetsRemoved = true;
 	Super::OnRemoveAbility(ActorInfo, Spec);
 }

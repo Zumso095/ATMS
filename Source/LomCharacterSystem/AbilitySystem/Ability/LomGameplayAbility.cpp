@@ -4,6 +4,7 @@
 #include "AbilitySystem/Ability/LomGameplayAbility.h"
 #include "AbilitySystem/LomAbilitySystemComponent.h"
 #include "AbilitySystem/Ability/LomAbilityCost.h"
+#include "UI/LomGameUIManagerSubsystem.h"
 
 
 void ULomGameplayAbility::OnGiveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec)
@@ -57,6 +58,15 @@ void ULomGameplayAbility::ApplyCost(const FGameplayAbilitySpecHandle Handle, con
 void ULomGameplayAbility::OnRemoveAbility(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec)
 {
 	AbilityRemoved();
+	// Clean up by owner even if local control has changed or creation is still pending.
+	if (UWorld* World = GetWorld())
+	{
+		if (ULomGameUIManagerSubsystem* UIManager = World->GetSubsystem<ULomGameUIManagerSubsystem>())
+		{
+			UIManager->RemoveWidgetsForOwner(this);
+		}
+	}
+	Super::OnRemoveAbility(ActorInfo, Spec);
 }
 #if WITH_EDITOR
 EDataValidationResult ULomGameplayAbility::IsDataValid(FDataValidationContext& Context) const
