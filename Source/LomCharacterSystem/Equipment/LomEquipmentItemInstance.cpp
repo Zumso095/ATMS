@@ -187,11 +187,15 @@ void ULomEquipmentItemInstance::AddWidgets()
 		if (inventoryUIFragment)
 		{
 			ULomGameUIManagerSubsystem* uiManager = GetWorld()->GetSubsystem<ULomGameUIManagerSubsystem>();
+			if (!uiManager)
+			{
+				return;
+			}
 			for (const FUIFragmentItemContainer& widget : inventoryUIFragment->WidgetsToAdd)
 			{
 				if (widget.AnchorPoint.IsValid() && widget.WidgetClass)
 				{
-					addedWidgets.Add(uiManager->PushContentToAnchor(widget.AnchorPoint, widget.WidgetClass));
+					uiManager->RequestContentToAnchor(widget.AnchorPoint, widget.WidgetClass, this);
 				}
 			}
 			/*for (ULomInventoryItemFragment* fragment : inventoryItemDefinition->Fragments)
@@ -216,20 +220,12 @@ void ULomEquipmentItemInstance::AddWidgets()
 
 void ULomEquipmentItemInstance::RemoveAddedWidgets()
 {
-	APawn* ownerPawn = GetOwnerPawn();
-	if (ownerPawn && ownerPawn->IsLocallyControlled() && !GetWorld()->IsNetMode(NM_DedicatedServer))
+	if (UWorld* World = GetWorld())
 	{
-		ULomGameUIManagerSubsystem* uiManager = GetWorld()->GetSubsystem<ULomGameUIManagerSubsystem>();
-
-		//ULomGameUIManagerSubsystem* uiManager = ULomGameUIManagerSubsystem::Get();
-		for (UUserWidget* widget : addedWidgets)
+		if (ULomGameUIManagerSubsystem* uiManager = World->GetSubsystem<ULomGameUIManagerSubsystem>())
 		{
-			if (widget)
-			{
-				uiManager->RemoveWidget(widget);
-			}
+			uiManager->RemoveWidgetsForOwner(this);
 		}
-
 	}
 }
 

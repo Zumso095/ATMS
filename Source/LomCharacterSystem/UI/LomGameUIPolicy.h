@@ -34,6 +34,7 @@ public:
 	TObjectPtr<ULomGameUIPrimaryLayout> GetCurrentLayout();
 
 private:
+	UPROPERTY(Transient)
 	TObjectPtr<ULomGameUIPrimaryLayout> currentLayout;
 
 };

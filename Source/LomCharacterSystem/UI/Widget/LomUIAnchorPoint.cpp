@@ -54,11 +54,6 @@ TSharedRef<SWidget> ULomUIAnchorPoint::RebuildWidget()
 {
 	//UE_LOG(LogTemp, Error, TEXT("rebuildWidget"));
 
-	if (!IsDesignTime() && PointTag.IsValid())
-	{
-		RegisterAnchor();
-	}
-
 	auto messageTextLambda = [this]()
 		{
 			return FText::Format(LOCTEXT("LomAnchorPointKey", "Anchor\n {0}"), FText::FromName(PointTag.GetTagName()));
@@ -74,7 +69,12 @@ TSharedRef<SWidget> ULomUIAnchorPoint::RebuildWidget()
 		return Message;
 	}
 
-	return Super::RebuildWidget();
+	TSharedRef<SWidget> Widget = Super::RebuildWidget();
+	if (PointTag.IsValid())
+	{
+		RegisterAnchor();
+	}
+	return Widget;
 }
 #if WITH_EDITOR	
 void ULomUIAnchorPoint::ValidateCompiledDefaults(IWidgetCompilerLog& CompileLog) const
@@ -85,8 +85,8 @@ void ULomUIAnchorPoint::ValidateCompiledDefaults(IWidgetCompilerLog& CompileLog)
 void ULomUIAnchorPoint::ReleaseSlateResources(bool bReleaseChildren)
 {
 	//UE_LOG(LogTemp, Error, TEXT("Release slate resources "));
-	ResetInternal();
 	ResetAnchor();
+	ResetInternal();
 	Super::ReleaseSlateResources(bReleaseChildren);
 }
 

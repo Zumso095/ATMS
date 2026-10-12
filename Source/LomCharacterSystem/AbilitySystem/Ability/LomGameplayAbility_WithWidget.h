@@ -25,5 +25,5 @@ public:
 	//~
 
 private:
-	TArray<UUserWidget*> addedWidgets;
+	bool bWidgetsRemoved = false;
 };

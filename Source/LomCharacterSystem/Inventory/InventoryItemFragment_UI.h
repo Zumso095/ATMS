@@ -37,7 +37,4 @@ public:
 	UPROPERTY(EditDefaultsOnly)
 	TArray<FUIFragmentItemContainer> WidgetsToAdd;
 
-private:
-
-	TArray<UUserWidget*> addedWidgets;
 };
