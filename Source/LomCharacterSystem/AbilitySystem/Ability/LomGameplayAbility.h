@@ -4,10 +4,10 @@
 
 #include "CoreMinimal.h"
 #include "Abilities/GameplayAbility.h"
-#include "Equipment/LomEquipmentItemInstance.h"
 #include "LomGameplayAbility.generated.h"
 
 class ULomAbilityCost;
+class ULomEquipmentItemInstance;
 
 UENUM(BlueprintType)
 enum class EAbilityActivationPolicy : uint8

@@ -6,6 +6,7 @@
 #include "UObject/NoExportTypes.h"
 #include "Engine/World.h"
 #include "GameplayTags.h"
+#include "AbilitySystem/LomAbilitySet.h"
 #include "LomEquipmentItemInstance.generated.h"
 
 class ULomInventoryItemDefinition;
@@ -61,7 +62,11 @@ public:
 	UPROPERTY(Replicated,BlueprintReadWrite)
 	TArray<AActor*> SpawnedActors;
 
-	ULomAbilitySet* attachedAbilitySet;
+	UPROPERTY(Transient)
+	ULomAbilitySet* attachedAbilitySet = nullptr;
+
+	UPROPERTY(Transient)
+	FLomAbilitySetGrantedHandles GrantedAbilitySetHandles;
 
 	//ULomAbilitySet* currentAbilitySet;
 	/*UPROPERTY(ReplicatedUsing = OnRep_AttachedInventoryItemInstance)

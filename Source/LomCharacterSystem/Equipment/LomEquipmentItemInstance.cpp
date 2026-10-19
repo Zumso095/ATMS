@@ -156,9 +156,9 @@ void ULomEquipmentItemInstance::AddAbilitySet(ULomAbilitySet* AbilitySet, AActor
 	if (Target && AbilitySet)
 	{
 		UAbilitySystemComponent* abilitySystem = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(Target);
-		if (abilitySystem)
+		if (abilitySystem && abilitySystem->IsOwnerActorAuthoritative())
 		{
-			AbilitySet->GiveAbility(abilitySystem, this);
+			AbilitySet->GiveAbility(abilitySystem, this, &GrantedAbilitySetHandles);
 			attachedAbilitySet = AbilitySet;
 		}
 	}
@@ -166,15 +166,8 @@ void ULomEquipmentItemInstance::AddAbilitySet(ULomAbilitySet* AbilitySet, AActor
 
 void ULomEquipmentItemInstance::RemoveAbilitySet(AActor* Target)
 {
-	if (attachedAbilitySet)
-	{
-		UAbilitySystemComponent* abilitySystem = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(Target);
-		if (abilitySystem)
-		{
-			
-			attachedAbilitySet->ClearAbility(abilitySystem);
-		}
-	}
+	GrantedAbilitySetHandles.TakeFromAbilitySystem();
+	attachedAbilitySet = nullptr;
 }
 
 void ULomEquipmentItemInstance::AddWidgets()

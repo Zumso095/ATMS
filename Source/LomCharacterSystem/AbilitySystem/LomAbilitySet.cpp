@@ -3,17 +3,27 @@
 
 #include "AbilitySystem/LomAbilitySet.h"
 #include "AbilitySystemComponent.h"
+#include "Equipment/LomEquipmentItemInstance.h"
 #include "EnhancedInputSubsystems.h"
 #include "AbilitySystem/Ability/LomGameplayAbility.h"
 
-void ULomAbilitySet::GiveAbility(UAbilitySystemComponent* abilitySystemComponent, ULomEquipmentItemInstance* AssociatedItemInstance)
+void ULomAbilitySet::GiveAbility(UAbilitySystemComponent* abilitySystemComponent, ULomEquipmentItemInstance* AssociatedItemInstance, FLomAbilitySetGrantedHandles* OutGrantedHandles) const
 {
+	if (!abilitySystemComponent || !abilitySystemComponent->IsOwnerActorAuthoritative())
+	{
+		return;
+	}
+	if (OutGrantedHandles)
+	{
+		// Reusing a grant record first removes its previous grants from their original ASC.
+		OutGrantedHandles->TakeFromAbilitySystem();
+		OutGrantedHandles->AbilitySystem = abilitySystemComponent;
+	}
 	for (const FGrantedAbilityItem& grantedAbility : Abilities)
 	{
-		ULomGameplayAbility* abilityCDO = grantedAbility.AbilityClass->GetDefaultObject<ULomGameplayAbility>();
-		//abilityCDO->AssociatedItem = AssociatedItemInstance;
 		if (grantedAbility.AbilityClass)
 		{
+			ULomGameplayAbility* abilityCDO = grantedAbility.AbilityClass->GetDefaultObject<ULomGameplayAbility>();
 			FGameplayAbilitySpec abilitySpec(abilityCDO);
 			abilitySpec.GetDynamicSpecSourceTags().AddTag(grantedAbility.InputTag);
 			if (AssociatedItemInstance)
@@ -25,7 +35,10 @@ void ULomAbilitySet::GiveAbility(UAbilitySystemComponent* abilitySystemComponent
 			const FGameplayAbilitySpecHandle& abilityHandle = abilitySystemComponent->GiveAbility(abilitySpec);
 			//	abilitySystemComponent->AbilityLocalInputPressed
 
-			AbilitiesHandles.Add(abilityHandle);
+			if (OutGrantedHandles)
+			{
+				OutGrantedHandles->AbilityHandles.Add(abilityHandle);
+			}
 		}
 	
 		
@@ -38,7 +51,10 @@ void ULomAbilitySet::GiveAbility(UAbilitySystemComponent* abilitySystemComponent
 		{
 			UAttributeSet* attributeSet = NewObject<UAttributeSet>(abilitySystemComponent->GetOwner(), grantedAttributeSet.AttributeSet);
 			abilitySystemComponent->AddAttributeSetSubobject(attributeSet);
-			AddedAttributeSets.Add(attributeSet);
+			if (OutGrantedHandles)
+			{
+				OutGrantedHandles->AddedAttributeSets.Add(attributeSet);
+			}
 		}
 	}
 
@@ -49,26 +65,41 @@ void ULomAbilitySet::GiveAbility(UAbilitySystemComponent* abilitySystemComponent
 		{
 			const UGameplayEffect* effectCDO = grantedEffect.Effect->GetDefaultObject<UGameplayEffect>();
 			const FActiveGameplayEffectHandle& effectHandle = abilitySystemComponent->ApplyGameplayEffectToSelf(effectCDO, 1, abilitySystemComponent->MakeEffectContext());
-			EffectHandles.Add(effectHandle);
+			if (OutGrantedHandles)
+			{
+				OutGrantedHandles->EffectHandles.Add(effectHandle);
+			}
 		}
 	}
 }
 
-void ULomAbilitySet::ClearAbility(UAbilitySystemComponent* abilitySystemComponent)
+void FLomAbilitySetGrantedHandles::TakeFromAbilitySystem()
 {
-	for (const FGameplayAbilitySpecHandle& abilityHandle : AbilitiesHandles)
+	UAbilitySystemComponent* abilitySystemComponent = AbilitySystem.Get();
+	if (abilitySystemComponent && !abilitySystemComponent->IsOwnerActorAuthoritative())
+	{
+		return;
+	}
+
+	// Clear this record before callbacks from ability removal can re-enter cleanup.
+	TArray<FGameplayAbilitySpecHandle> RemovedAbilities = MoveTemp(AbilityHandles);
+	TArray<FActiveGameplayEffectHandle> RemovedEffects = MoveTemp(EffectHandles);
+	TArray<TObjectPtr<UAttributeSet>> RemovedAttributes = MoveTemp(AddedAttributeSets);
+	AbilitySystem.Reset();
+	if (!abilitySystemComponent)
+	{
+		return;
+	}
+	for (const FGameplayAbilitySpecHandle& abilityHandle : RemovedAbilities)
 	{
 		abilitySystemComponent->ClearAbility(abilityHandle);
 	}
-	for (const FActiveGameplayEffectHandle& effectHandle : EffectHandles)
+	for (const FActiveGameplayEffectHandle& effectHandle : RemovedEffects)
 	{
 		abilitySystemComponent->RemoveActiveGameplayEffect(effectHandle);
 	}
-	for (UAttributeSet* attributeSet : AddedAttributeSets)
+	for (UAttributeSet* attributeSet : RemovedAttributes)
 	{
 		abilitySystemComponent->RemoveSpawnedAttribute(attributeSet);
 	}
-	AbilitiesHandles.Reset();
-	EffectHandles.Reset();
-	AddedAttributeSets.Reset();
 }

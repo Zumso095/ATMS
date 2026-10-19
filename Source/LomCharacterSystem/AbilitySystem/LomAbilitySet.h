@@ -11,6 +11,24 @@
 
 class UAbilitySystemComponent;
 class ULomEquipmentItemInstance;
+
+// Runtime grants belong to one equipment instance, never to the shared data asset.
+USTRUCT()
+struct FLomAbilitySetGrantedHandles
+{
+	GENERATED_BODY()
+
+	void TakeFromAbilitySystem();
+
+	UPROPERTY(Transient)
+	TWeakObjectPtr<UAbilitySystemComponent> AbilitySystem;
+
+	TArray<FGameplayAbilitySpecHandle> AbilityHandles;
+	TArray<FActiveGameplayEffectHandle> EffectHandles;
+
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UAttributeSet>> AddedAttributeSets;
+};
 /**
  * 
  */
@@ -52,8 +70,7 @@ class LOMCHARACTERSYSTEM_API ULomAbilitySet : public UPrimaryDataAsset
 {
 	GENERATED_BODY()
 public:
-	void GiveAbility(UAbilitySystemComponent* abilitySystemComponent, ULomEquipmentItemInstance* AssociatedItemInstance = nullptr);
-	void ClearAbility(UAbilitySystemComponent* abilitySystemComponent);
+	void GiveAbility(UAbilitySystemComponent* abilitySystemComponent, ULomEquipmentItemInstance* AssociatedItemInstance = nullptr, FLomAbilitySetGrantedHandles* OutGrantedHandles = nullptr) const;
 
 	UPROPERTY(EditDefaultsOnly)
 	TArray<FGrantedAbilityItem> Abilities;
@@ -63,12 +80,5 @@ public:
 
 	UPROPERTY(EditDefaultsOnly)
 	TArray<FGrantedAttributeItem> Attributes;
-
-private:
-
-
-	TArray<FGameplayAbilitySpecHandle> AbilitiesHandles;
-	TArray<FActiveGameplayEffectHandle> EffectHandles;
-	TArray<TObjectPtr<UAttributeSet>> AddedAttributeSets;
 
 };
