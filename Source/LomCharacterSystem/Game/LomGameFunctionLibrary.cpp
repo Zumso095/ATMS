@@ -45,3 +45,13 @@ void ULomGameFunctionLibrary::SpawnActorFromPawnData(const UObject* WorldContext
 		}
 	}
 }
+
+bool ULomGameFunctionLibrary::isInEditor()
+{
+#if WITH_EDITOR
+	return true;
+#else
+	return false
+#endif
+
+}
