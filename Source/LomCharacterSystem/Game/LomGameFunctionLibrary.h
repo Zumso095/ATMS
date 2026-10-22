@@ -35,4 +35,7 @@ public:
 
 	//~Game Mode
 
+	UFUNCTION(BlueprintPure)
+	static bool isInEditor();
+
 };
