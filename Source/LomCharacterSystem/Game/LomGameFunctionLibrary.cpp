@@ -51,7 +51,7 @@ bool ULomGameFunctionLibrary::isInEditor()
 #if WITH_EDITOR
 	return true;
 #else
-	return false
+	return false;
 #endif
 
 }
