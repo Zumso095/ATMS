@@ -223,6 +223,7 @@ void ULomLoadingScreenSubsystem::ShowLoadingScreen()
 
 	if (!UserWidget)
 	{
+		UE_LOG(LogTemp ,Error, TEXT("[LoadingScreen] Failed to create widget instance"));
 		return;
 	}
 
