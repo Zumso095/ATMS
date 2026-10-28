@@ -27,6 +27,7 @@ public class LomCharacterSystem : ModuleRules
 			"UMG",
             "CommonUI",
             "ModularGameplay",
+			"MoviePlayer"
 
         });
 
@@ -34,7 +35,9 @@ public class LomCharacterSystem : ModuleRules
 		{
             "Slate",
             "SlateCore",
-            "GameplayMessageRuntime"
+            "GameplayMessageRuntime",
+            "DeveloperSettings",
+            "RenderCore"
         }
 		);
 
