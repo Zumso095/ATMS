@@ -27,7 +27,8 @@ public class LomCharacterSystem : ModuleRules
 			"UMG",
             "CommonUI",
             "ModularGameplay",
-			"MoviePlayer"
+			"MoviePlayer",
+			"FMODStudio"
 
         });
 
