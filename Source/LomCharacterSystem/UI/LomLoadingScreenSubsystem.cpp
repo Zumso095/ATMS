@@ -5,6 +5,9 @@
 #include "ShaderPipelineCache.h"
 #include "Blueprint/UserWidget.h"
 #include "Engine/GameViewportClient.h"
+#include "AudioDevice.h"
+#include "FMODStudioModule.h"
+#include "fmod_studio.hpp"
 #include "Engine/Engine.h"
 
 class FLoadingScreenInputPreProcessor : public IInputProcessor
@@ -419,6 +422,30 @@ void ULomLoadingScreenSubsystem::ChangePerformanceSettings(bool bEnabingLoadingS
 			WorldSettings->bHighPriorityLoadingLocal = bEnabingLoadingScreen;
 		}
 	}
+
+	if (GEngine)
+	{
+		if (FAudioDeviceHandle AudioDevice = GEngine->GetMainAudioDevice())
+		{
+			AudioDevice->SetTransientPrimaryVolume(bEnabingLoadingScreen ? 0.0f : 1.0f);
+		}
+	}
+
+	if (IFMODStudioModule::IsAvailable())
+	{
+		FMOD::Studio::System* StudioSystem = IFMODStudioModule::Get().GetStudioSystem(EFMODSystemContext::Runtime);
+		if (StudioSystem)
+		{
+			FMOD::Studio::Bus* MasterBus = nullptr;
+
+			StudioSystem->getBus("bus:/", &MasterBus);
+			if (MasterBus)
+			{
+				MasterBus->setMute(bEnabingLoadingScreen);
+			}
+		}
+	}
+
 }
 
 void ULomLoadingScreenSubsystem::StartBlockingInput()
