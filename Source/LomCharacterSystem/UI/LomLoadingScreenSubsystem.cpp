@@ -1,3 +1,5 @@
+// Fill out your copyright notice in the Description page of Project Settings.
+
 #include "UI/LomLoadingScreenSubsystem.h"
 #include "Framework/Application/IInputProcessor.h"
 #include "GameFramework/GameStateBase.h"
@@ -39,6 +41,9 @@ void ULomLoadingScreenSubsystem::Initialize(FSubsystemCollectionBase& Collection
 	FCoreUObjectDelegates::PreLoadMapWithContext.AddUObject(this, &ThisClass::HandlePreLoadMap);
 	FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(this, &ThisClass::HandlePostLoadMap);
 	FWorldDelegates::OnSeamlessTravelStart.AddUObject(this, &ThisClass::HandleSeamlessTravel);
+
+	bStartupLoading = true;
+	TimeLoadingScreenLastDismissed = -1.0;
 
 	UGameInstance* GameInstance = GetGameInstance();
 	check(GameInstance);
@@ -108,7 +113,6 @@ void ULomLoadingScreenSubsystem::HandlePreLoadMap(const FWorldContext& WorldCont
 		const bool bWasStartupLoading = bStartupLoading;
 		PreLoadMapInfo(MapName);
 
-		// Если экран уже был показан ранее (например, по TravelURL), но тип виджета сменился — пересоздаем его корректно
 		if (bCurrentlyShowingLoadingScreen && (bWasStartupLoading != bStartupLoading))
 		{
 			HideLoadingScreen();
@@ -135,8 +139,6 @@ void ULomLoadingScreenSubsystem::HandleSeamlessTravel(UWorld* World, const FStri
 {
 	if (World && World->GetGameInstance() == GetGameInstance())
 	{
-		// Не выставляем bCurrentlyInLoadMap = true, так как при Seamless Travel не вызывается PostLoadMapWithWorld.
-		// Состояние бесшовного перехода отслеживается через World->IsInSeamlessTravel().
 		bSeamlessTravel = true;
 		LoadingMapName = MapName;
 		PreLoadMapInfo(MapName);
@@ -150,6 +152,11 @@ void ULomLoadingScreenSubsystem::HandleSeamlessTravel(UWorld* World, const FStri
 
 void ULomLoadingScreenSubsystem::PreLoadMapInfo(FString MapName)
 {
+	if (!bStartupLoading)
+	{
+		return;
+	}
+
 	const ULomLoadingScreenSettings* Settings = GetDefault<ULomLoadingScreenSettings>();
 
 	if (MapName.IsEmpty())
@@ -164,13 +171,9 @@ void ULomLoadingScreenSubsystem::PreLoadMapInfo(FString MapName)
 	}
 
 	const FString MenuName = Settings->MenuLevelName.ToString();
-	if (!MenuName.IsEmpty() && !MenuName.Equals(TEXT("None"), ESearchCase::IgnoreCase) && MapName.Contains(MenuName))
+	if (!MenuName.IsEmpty() && !MenuName.Equals(TEXT("None"), ESearchCase::IgnoreCase))
 	{
-		bStartupLoading = true;
-	}
-	else
-	{
-		bStartupLoading = false;
+		bStartupLoading = MapName.Contains(MenuName);
 	}
 }
 
@@ -187,6 +190,20 @@ void ULomLoadingScreenSubsystem::UpdateLoadingScreen()
 	else
 	{
 		HideLoadingScreen();
+
+		if (bStartupLoading)
+		{
+			if (const UGameInstance* LocalGI = GetGameInstance())
+			{
+				if (const UWorld* World = LocalGI->GetWorld())
+				{
+					if (World->HasBegunPlay() && !bCurrentlyInLoadMap)
+					{
+						bStartupLoading = false;
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -226,7 +243,7 @@ void ULomLoadingScreenSubsystem::ShowLoadingScreen()
 
 	if (!UserWidget)
 	{
-		UE_LOG(LogTemp ,Error, TEXT("[LoadingScreen] Failed to create widget instance"));
+		UE_LOG(LogTemp, Error, TEXT("[LoadingScreen] Failed to create widget instance"));
 		return;
 	}
 
@@ -258,6 +275,8 @@ void ULomLoadingScreenSubsystem::HideLoadingScreen()
 	LoadingMapName.Empty();
 	bSeamlessTravel = false;
 	bCurrentlyShowingLoadingScreen = false;
+
+	bStartupLoading = false;
 }
 
 void ULomLoadingScreenSubsystem::RemoveWidgetFromViewport()
@@ -316,7 +335,6 @@ bool ULomLoadingScreenSubsystem::ShouldShowLoadingScreen()
 
 		if ((HoldLoadingScreenAdditionalSecs > 0.0) && (TimeSinceScreenDismissed < HoldLoadingScreenAdditionalSecs))
 		{
-			// Включаем рендер мира заранее, чтобы за время удержания экрана подгрузились текстуры и шейдеры
 			if (UGameViewportClient* GameViewportClient = LocalGameInstance->GetGameViewportClient())
 			{
 				GameViewportClient->bDisableWorldRendering = false;
@@ -445,7 +463,6 @@ void ULomLoadingScreenSubsystem::ChangePerformanceSettings(bool bEnabingLoadingS
 			}
 		}
 	}
-
 }
 
 void ULomLoadingScreenSubsystem::StartBlockingInput()
