@@ -2698,7 +2698,7 @@ void USmoothSync::AddOwnerTimeOffset(float newOwnerTime)
 	if (ownerTimeOffsets.Num() == numValuesToStore)
 	{
 		// Remove oldest value
-		ownerTimeOffsets.RemoveAt(0, 1, false);
+		ownerTimeOffsets.RemoveAt(0, 1, EAllowShrinking::No);
 	}
 
 	// Calculate latest difference between local and owner time

@@ -26,6 +26,14 @@
 	"BuiltInInitialFeatureState": "Active",
 	"Plugins": [
 		{
+			"Name": "GameplayAbilities",
+			"Enabled": true
+		},
+		{
+			"Name": "Niagara",
+			"Enabled": true
+		},
+		{
 			"Name": "SurvivalCore",
 			"Enabled": true
 		},
