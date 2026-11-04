@@ -26,6 +26,29 @@
 }
 @end
 
+// Objective-C++ wrapper for remote config update notifications
+@interface GARemoteConfigsProvider : NSObject <GARemoteConfigsDelegate>
+{
+    std::function<void()> remoteConfigsUpdatedCallback;
+}
+- (instancetype)initWithCallback:(const std::function<void()>&)callback;
+@end
+
+@implementation GARemoteConfigsProvider
+- (instancetype)initWithCallback:(const std::function<void()>&)callback {
+    self = [super init];
+    if (self) {
+        remoteConfigsUpdatedCallback = callback;
+    }
+    return self;
+}
+- (void)onRemoteConfigsUpdated {
+    if (remoteConfigsUpdatedCallback) {
+        remoteConfigsUpdatedCallback();
+    }
+}
+@end
+
 namespace gameanalytics
 {
     NSString* ToNSString(std::string const& str)
@@ -162,6 +185,33 @@ namespace gameanalytics
     void GAWrapperIOS::AddBusinessEventWithReceipt(std::string const& currency, int amount, std::string const& itemType, std::string const& itemId, std::string const& cartType, std::string const& receipt, std::string const& store, std::string const& signature, std::string const& fields, bool mergeFields)
     {
         return AddBusinessEvent(currency, amount, itemType, itemId, cartType, receipt, fields, mergeFields);
+    }
+
+    void GAWrapperIOS::AddBusinessEventWithValidation(std::string const& currency, int amount, std::string const& itemType, std::string const& itemId, std::string const& cartType, std::string const& store, std::string const& productId, std::string const& purchaseToken, std::string const& fields, bool mergeFields)
+    {
+        // on iOS the purchase token is the App Store transaction id; store and product id are not used
+        (void)store;
+        (void)productId;
+        NSString *currencyString = ToNSString(currency);
+        NSInteger amountInteger = (NSInteger)amount;
+        NSString *itemTypeString = ToNSString(itemType);
+        NSString *itemIdString = ToNSString(itemId);
+        NSString *cartTypeString = ToNSString(cartType);
+        NSString *transactionIdString = ToNSString(purchaseToken);
+        NSString *fieldsString = ToNSString(fields);
+        NSDictionary *fields_dict = nil;
+        if (fieldsString) {
+            fields_dict = [NSJSONSerialization JSONObjectWithData:[fieldsString dataUsingEncoding:NSUTF8StringEncoding] options:kNilOptions error:nil];
+        }
+
+        [GameAnalytics addBusinessEventWithCurrency:currencyString
+                                            amount:amountInteger
+                                        itemType:itemTypeString
+                                            itemId:itemIdString
+                                        cartType:cartTypeString
+                                    transactionId:transactionIdString
+                                    customFields:fields_dict
+                                        mergeFields:mergeFields];
     }
 
     void GAWrapperIOS::AddBusinessEventAndAutoFetchReceipt(std::string const& currency, int amount, std::string const& itemType, std::string const& itemId, std::string const& cartType, std::string const& fields, bool mergeFields) {
@@ -396,6 +446,17 @@ namespace gameanalytics
         return s;
     }
 
+    void GAWrapperIOS::RegisterRemoteConfigListener(FRemoteConfigListener listener) {
+        GARemoteConfigsProvider *provider = [[GARemoteConfigsProvider alloc] initWithCallback:[this, listener]()
+        {
+            const std::string remoteConfigs = GetRemoteConfigsContentAsString();
+            FString asFString = UTF8_TO_TCHAR(remoteConfigs.c_str());
+            listener.Execute(asFString);
+        }];
+
+        [GameAnalytics setRemoteConfigsDelegate:provider];
+    }
+
     std::string GAWrapperIOS::GetUserId() {
         NSString* uid = [GameAnalytics getUserId];
         return FromNSString(uid);
@@ -434,8 +495,6 @@ namespace gameanalytics
     {
         [GameAnalytics enableSDKInitEvent:value];
     }
-
-
 
     void GAWrapperIOS::EnableFpsHistogram(FPSTracker tracker, bool value)
     {
@@ -483,7 +542,6 @@ namespace gameanalytics
 
     void GAWrapperIOS::OnQuit()
     {
-
     }
 
     void GAWrapperIOS::SetWritablePath(std::string const& path)

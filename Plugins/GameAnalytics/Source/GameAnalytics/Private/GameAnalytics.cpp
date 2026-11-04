@@ -8,7 +8,12 @@
 #include "GameAnalyticsPerformance.h"
 #include "GameAnalyticsModule.h"
 
-#define GA_VERSION TEXT("6.1.2")
+#include "HttpModule.h"
+#include "HttpManager.h"
+#include "Async/Async.h"
+#include "HAL/PlatformProcess.h"
+
+#define GA_VERSION TEXT("6.3.0")
 
 #if PLATFORM_MAC || PLATFORM_WINDOWS || PLATFORM_LINUX
     #define GA_USE_CPP_SDK 1
@@ -54,7 +59,7 @@ inline constexpr auto BoolToStr(bool flag)
 
 void PrintImplWarning(const char* funcName)
 {
-    UE_LOG(LogGameAnalytics, Display, TEXT("UGameAnalytics::%hs(): This platform is not supported (please note GameAnalytics will not work inside the editor!)"), funcName);
+    UE_LOG(LogGameAnalytics, Warning, TEXT("UGameAnalytics::%hs(): This platform is not supported (please note GameAnalytics will not work inside the editor!)"), funcName);
 }
 
 #define GA_NOT_SUPPORTED_WARNING() PrintImplWarning(__FUNCTION__)
@@ -169,8 +174,6 @@ UGameAnalytics::UGameAnalytics(const FObjectInitializer& ObjectInitializer) : Su
 
 void UGameAnalytics::BeginDestroy()
 {
-    OnQuit();
-
     if(IsValid(_performanceTracker))
     {
         _performanceTracker->RemoveFromRoot();
@@ -365,6 +368,24 @@ void UGameAnalytics::AddBusinessEventAndAutoFetchReceipt(FString const& currency
     if(_impl)
     {
         _impl->AddBusinessEventAndAutoFetchReceipt(ToStdString(currency), amount, ToStdString(itemType), ToStdString(itemId), ToStdString(cartType), ToStdString(CustomFields.ToString()), mergeFields);
+    }
+    else
+    {
+        GA_NOT_SUPPORTED_WARNING();
+    }
+}
+
+void UGameAnalytics::AddBusinessEventWithValidation(FString const& Currency, int Amount, FString const& ItemType, FString const& ItemId, FString const& CartType, const FGAReceipt& Receipt, const FGACustomFields CustomFields, bool MergeFields)
+{
+    if(_impl)
+    {
+        #if PLATFORM_IOS
+            _impl->AddBusinessEventWithValidation(ToStdString(Currency), Amount, ToStdString(ItemType), ToStdString(ItemId), ToStdString(CartType), "apple_app_store", "", ToStdString(Receipt.TransactionId), ToStdString(CustomFields.ToString()), MergeFields);
+        #elif PLATFORM_ANDROID
+            _impl->AddBusinessEventWithValidation(ToStdString(Currency), Amount, ToStdString(ItemType), ToStdString(ItemId), ToStdString(CartType), "google_play_store", ToStdString(Receipt.ProductId), ToStdString(Receipt.PurchaseToken), ToStdString(CustomFields.ToString()), MergeFields);
+        #else
+            UE_LOG(LogGameAnalytics, Warning, TEXT("Business Event with validation is only available for iOS and Android"));
+        #endif
     }
     else
     {
@@ -644,7 +665,39 @@ void UGameAnalytics::OnQuit()
 {
     if(_impl)
     {
-        _impl->OnQuit();
+        // only needed for desktop platforms -> other platforms do not use Unreal's HTTP client
+        #if GA_USE_CPP_SDK
+
+            // timeout is 21 seconds
+            constexpr float TIMEOUT = 21.0;
+
+            // join GA thread
+            TFuture<void> Done = Async(EAsyncExecution::Thread, [this]()
+                {
+                    _impl->OnQuit();
+                }
+            );
+
+            const float StartTime = FPlatformTime::Seconds();
+
+            // we need to tick unreal's HTTP client for outstanding requests
+            while (!Done.IsReady())
+            {
+                FPlatformProcess::Sleep(0.2);
+                FHttpModule::Get().GetHttpManager().Flush(EHttpFlushReason::Default);
+
+                float TimePassed = FPlatformTime::Seconds() - StartTime;
+                if (TimePassed > TIMEOUT)
+                {
+                    break;
+                }
+            }
+
+        #else
+
+            _impl->OnQuit();
+
+        #endif
     }
     else
     {
@@ -695,6 +748,18 @@ bool UGameAnalytics::IsRemoteConfigsReady()
     {
         GA_NOT_SUPPORTED_WARNING();
         return false;
+    }
+}
+
+void UGameAnalytics::RegisterRemoteConfigsListener(FRemoteConfigListener listener)
+{
+    if (_impl)
+    {
+        return _impl->RegisterRemoteConfigListener(listener);
+    }
+    else
+    {
+        GA_NOT_SUPPORTED_WARNING();
     }
 }
 

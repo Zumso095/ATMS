@@ -2,7 +2,7 @@
 
 #include "GAWrapper.h"
 
-namespace gameanalytics 
+namespace gameanalytics
 {
     class GAWrapperIOS:
         public GAWrapper
@@ -46,6 +46,7 @@ namespace gameanalytics
             virtual void AddBusinessEvent(std::string const& currency, int amount, std::string const& itemType, std::string const& itemId, std::string const&cartType, std::string const& receipt, std::string const&  fields, bool mergeFields) override;
             virtual void AddBusinessEventAndAutoFetchReceipt(std::string const& currency, int amount, std::string const& itemType, std::string const& itemId, std::string const& cartType, std::string const&  fields, bool mergeFields) override;
             virtual void AddBusinessEventWithReceipt(std::string const& currency, int amount, std::string const& itemType, std::string const& itemId, std::string const& cartType, std::string const& receipt, std::string const& store, std::string const& signature, std::string const&  fields, bool mergeFields) override;
+            virtual void AddBusinessEventWithValidation(std::string const& currency, int amount, std::string const& itemType, std::string const& itemId, std::string const& cartType, std::string const& store, std::string const& productId, std::string const& purchaseToken, std::string const& fields, bool mergeFields) override;
 
             virtual void AddResourceEvent(EGAResourceFlowType flowType, std::string const& currency, float amount, std::string const& itemType, std::string const& itemId, std::string const&  fields, bool mergeFields) override;
 
@@ -80,6 +81,8 @@ namespace gameanalytics
             virtual std::string GetABTestingId() override;
 
             virtual std::string GetABTestingVariantId() override;
+
+            virtual void RegisterRemoteConfigListener(FRemoteConfigListener listener) override;
 
             ///// HEALTH
 

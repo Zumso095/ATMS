@@ -1,4 +1,5 @@
 #include "GameAnalyticsPerformance.h"
+#include "HAL/PlatformMisc.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGameAnalyticsDebug, Display, All);
 
@@ -15,8 +16,6 @@ void UGameAnalyticsPerformance::Tick(float DeltaTime)
         _timePassed = 0.f;
         DoFpsSample();
     }
-
-    //UE_LOG(LogGameAnalyticsDebug, Display, TEXT("GameAnalytics FPS: %.2f Avg Fps: %.2f"), fps, _avgFps);
 }
 
 float UGameAnalyticsPerformance::GetAvgFps() const
