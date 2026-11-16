@@ -7,6 +7,11 @@
 #include "FMODStudioModule.h"
 #include "fmod_studio.hpp"
 
+#include "Camera/CameraComponent.h"
+#include "GameFramework/PlayerController.h"
+#include "Camera/PlayerCameraManager.h"
+#include "GameFramework/Pawn.h"
+
 
 namespace
 {
@@ -78,32 +83,59 @@ void ULomGameUserSettings::SetMasterVolume(float Volume)
     ApplySingleBusVolume(TEXT("bus:/MASTER"), MasterVolume);
 }
 
-void ULomGameUserSettings::SetMusicVolumeVolume(float Volume)
+void ULomGameUserSettings::SetMusicVolume(float Volume)
 {
 	MusicVolume = Volume;
 
-    ApplySingleBusVolume(TEXT("bus:/MUSIC"), MusicVolume);
+    ApplySingleBusVolume(TEXT("bus:/MASTER/MUSIC"), MusicVolume);
 }
 
 void ULomGameUserSettings::SetSFXVolume(float Volume)
 {
 	SFXVolume = Volume;
 
-    ApplySingleBusVolume(TEXT("bus:/SFX"), SFXVolume);
+    ApplySingleBusVolume(TEXT("bus:/MASTER/SFX"), SFXVolume);
 }
 
 void ULomGameUserSettings::SetAmbienceVolume(float Volume)
 {
 	AmbienceVolume = Volume;
 
-    ApplySingleBusVolume(TEXT("bus:/ANBIENCE"), AmbienceVolume);
+    ApplySingleBusVolume(TEXT("bus:/MASTER/AMBIENCE"), AmbienceVolume);
 }
 
 void ULomGameUserSettings::SetUIVolume(float Volume)
 {
 	UIVolume = Volume;
 
-    ApplySingleBusVolume(TEXT("bus:/UI"), UIVolume);
+    ApplySingleBusVolume(TEXT("bus:/MASTER/UI"), UIVolume);
+}
+
+void ULomGameUserSettings::ApplyFieldOfView(APlayerController* PlayerController) const
+{
+    /*if (!IsValid(PlayerController))
+    {
+        return;
+    }
+
+    APlayerCameraManager* CameraManager =
+        PlayerController->PlayerCameraManager;
+
+    if (!IsValid(CameraManager))
+    {
+        return;
+    }
+
+    CameraManager->SetFOV(FieldOfView);*/
+
+    OnFOVChanged.Broadcast(FieldOfView);
+
+}
+
+void ULomGameUserSettings::SetFieldOfView(float Value, APlayerController* PlayerController)
+{
+    FieldOfView = Value;
+    ApplyFieldOfView(PlayerController);
 }
 
 void ULomGameUserSettings::ApplyAidioSettings()
@@ -116,10 +148,10 @@ void ULomGameUserSettings::ApplyAidioSettings()
     }
 
     ApplyBusVolume(StudioSystem, TEXT("bus:/MASTER"), MasterVolume);
-    ApplyBusVolume(StudioSystem, TEXT("bus:/MUSIC"), MusicVolume);
-    ApplyBusVolume(StudioSystem, TEXT("bus:/SFX"), SFXVolume);
-    ApplyBusVolume(StudioSystem, TEXT("bus:/AMBIENCE"), AmbienceVolume);
-    ApplyBusVolume(StudioSystem, TEXT("bus:/UI"), UIVolume);
+    ApplyBusVolume(StudioSystem, TEXT("bus:/MASTER/MUSIC"), MusicVolume);
+    ApplyBusVolume(StudioSystem, TEXT("bus:/MASTER/SFX"), SFXVolume);
+    ApplyBusVolume(StudioSystem, TEXT("bus:/MASTER/AMBIENCE"), AmbienceVolume);
+    ApplyBusVolume(StudioSystem, TEXT("bus:/MASTER/UI"), UIVolume);
 
 }
 

@@ -9,6 +9,12 @@
 /**
  * 
  */
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnFOVChangedSignature, float, NewValue);
+
+
+class APlayerController;
+
 UCLASS(BlueprintType)
 class LOMCHARACTERSYSTEM_API ULomGameUserSettings : public UGameUserSettings
 {
@@ -35,6 +41,9 @@ private:
 	UPROPERTY(Config)
 	bool bMotionBlurEnabled = true;
 
+	UPROPERTY(Config)
+	float FieldOfView = 90.0f;
+
 public: 
 
 	virtual void ApplyNonResolutionSettings() override;
@@ -46,7 +55,7 @@ public:
 	void SetMasterVolume(float Volume);
 
 	UFUNCTION(BlueprintCallable)
-	void SetMusicVolumeVolume(float Volume);
+	void SetMusicVolume(float Volume);
 
 	UFUNCTION(BlueprintCallable)
 	void SetSFXVolume(float Volume);
@@ -57,15 +66,46 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void SetUIVolume(float Volume);
 
+	UFUNCTION(BlueprintCallable)
+	void ApplyFieldOfView(APlayerController* PlayerController) const;
+
+	UFUNCTION(BlueprintCallable)
+	void SetFieldOfView(float Value, APlayerController* PlayerController);
+
+	UPROPERTY(BlueprintAssignable)
+	FOnFOVChangedSignature OnFOVChanged;
+
 
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	const bool GetMotionBlurEnabled() { return bMotionBlurEnabled; };
 
-private: 
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+	const float GetFieldOfView() { return FieldOfView; };
 
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+	const float GetMusicVolume() { return MusicVolume; };
+
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+	const float GetMasterVolume() { return MasterVolume; };
+
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+	const float GetAnbienceVolume() { return AmbienceVolume; };
+
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+	const float GetUIVolume() { return UIVolume; };
+
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+	const float GetSFXVolume() { return SFXVolume; };
+
+	UFUNCTION(BlueprintCallable)
 	void ApplyAidioSettings();
 
+	UFUNCTION(BlueprintCallable)
 	void ApplyMotionBlurSettings();
+
+private: 
+
+
 
 
 };

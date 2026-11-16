@@ -90,7 +90,9 @@ void UGameFeatureAction_AddInputMap::AddInputMapping(APlayerController* playerCo
 			// when I use servertravel it cast's crash
 			if (enhancedInputSubsystem)
 			{
-				enhancedInputSubsystem->AddMappingContext(mapping, 0);
+				FModifyContextOptions Options;
+				Options.bNotifyUserSettings = true;
+				enhancedInputSubsystem->AddMappingContext(mapping, 0, Options);
 				//UE_LOG(LogTemp, Error, TEXT("input mapping added == %s"), *mapping->GetName());
 			}
 			
