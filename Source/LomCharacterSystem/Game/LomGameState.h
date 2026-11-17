@@ -9,6 +9,8 @@
 
 #include "LomGameState.generated.h"
 
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPlayerEnterLeaveDelegate, class APawn*, Pawn);
 /**
  * 
  */
@@ -20,12 +22,19 @@ UCLASS()
 class LOMCHARACTERSYSTEM_API ALomGameState : public AGameStateBase,public IAbilitySystemInterface
 {
 	GENERATED_BODY()
+
 public:
 	ALomGameState();
 	virtual void PreInitializeComponents() override;
 	virtual void PostInitializeComponents() override;
 	virtual void BeginPlay() override;
 	virtual void EndPlay(EEndPlayReason::Type EndPlayReason) override;
+
+	UPROPERTY(BlueprintAssignable)
+	FPlayerEnterLeaveDelegate OnPlayerEnteredGame; // This delegate is called from PlayerInitializerComponent
+
+	UPROPERTY(BlueprintAssignable)
+	FPlayerEnterLeaveDelegate OnPlayerLeftGame; // This delegate is called from PlayerInitializerComponent
 
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override { return abilitySystemComponent; };
 
