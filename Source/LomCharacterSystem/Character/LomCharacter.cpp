@@ -2,6 +2,7 @@
 
 
 #include "LomCharacter.h"
+#include "LomCharacterMovementComponent.h"
 #include "Components/GameFrameworkComponentManager.h"
 #include "AbilitySystem/LomAbilitySystemComponent.h"
 #include "NativeGameplayTags.h"
@@ -10,7 +11,8 @@ UE_DEFINE_GAMEPLAY_TAG(Input_Block_Movement, "Input.Block.Movement");
 UE_DEFINE_GAMEPLAY_TAG(Input_Block_Look, "Input.Block.Look");
 
 // Sets default values
-ALomCharacter::ALomCharacter()
+ALomCharacter::ALomCharacter(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer.SetDefaultSubobjectClass<ULomCharacterMovementComponent>(ACharacter::CharacterMovementComponentName))
 {
  	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
