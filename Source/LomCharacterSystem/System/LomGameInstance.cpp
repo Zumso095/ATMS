@@ -13,3 +13,10 @@ int32 ULomGameInstance::AddLocalPlayer(ULocalPlayer* NewPlayer, FPlatformUserId 
 	//GetWorld()->GetSubsystem<ULomGameUIManagerSubsystem>()->ShowMenu(NewPlayer);
 	return result;
 }
+
+ULomGameInstance::ULomGameInstance(const FObjectInitializer& ObjectInitializer)
+	:Super(ObjectInitializer)
+{
+	bAutoJoinSessionOnAcceptedUserInviteReceived = true;
+	bAutoTravelOnAcceptedUserInviteReceived = true;
+}

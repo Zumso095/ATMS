@@ -28,7 +28,8 @@ public class LomCharacterSystem : ModuleRules
             "CommonUI",
             "ModularGameplay",
 			"MoviePlayer",
-			"FMODStudio"
+			"FMODStudio",
+            "AdvancedSessions"
 
         });
 

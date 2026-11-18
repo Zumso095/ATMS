@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Engine/GameInstance.h"
+#include "AdvancedFriendsGameInstance.h"
 
 #include "LomGameInstance.generated.h"
 
@@ -11,10 +12,12 @@
  * 
  */
 UCLASS()
-class LOMCHARACTERSYSTEM_API ULomGameInstance : public UGameInstance
+class LOMCHARACTERSYSTEM_API ULomGameInstance : public UAdvancedFriendsGameInstance
 {
 	GENERATED_BODY()
 public:
 	virtual int32 AddLocalPlayer(ULocalPlayer* NewPlayer, FPlatformUserId UserId) override;
 	
+	ULomGameInstance(const FObjectInitializer& ObjectInitializer);
+
 };
