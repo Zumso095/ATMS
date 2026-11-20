@@ -754,13 +754,13 @@ void UFMODAudioComponent::PlayInternal(EFMODSystemContext::Type Context, bool bR
         if (OcclusionDetails.bEnableOcclusion)
         {
             param = Settings.OcclusionParameter;
-            if (!param.IsEmpty() && AutomatedParameterCache.Find(*param))
+            // ATMS patch: query the runtime EventDesc directly. AutomatedParameterCache is only filled in editor
+            // (OnRegister is WITH_EDITORONLY_DATA, GetParameterDescriptions uses the Auditioning system),
+            // so in packaged builds occlusion was silently disabled.
+            if (!param.IsEmpty() && EventDesc->getParameterDescriptionByName(TCHAR_TO_UTF8(*param), &paramDesc) == FMOD_OK)
             {
-                if (EventDesc->getParameterDescriptionByName(TCHAR_TO_UTF8(*param), &paramDesc) == FMOD_OK)
-                {
-                    OcclusionID = paramDesc.id;
-                    bApplyOcclusionParameter = true;
-                }
+                OcclusionID = paramDesc.id;
+                bApplyOcclusionParameter = true;
             }
             else
             {
@@ -770,7 +770,7 @@ void UFMODAudioComponent::PlayInternal(EFMODSystemContext::Type Context, bool bR
 
         paramDesc = {};
         param = Settings.AmbientVolumeParameter;
-        if (!param.IsEmpty() && AutomatedParameterCache.Find(*param))
+        if (!param.IsEmpty()) // ATMS patch: was also AutomatedParameterCache.Find (editor-only)
         {
             if (EventDesc->getParameterDescriptionByName(TCHAR_TO_UTF8(*param), &paramDesc) == FMOD_OK)
             {
@@ -782,7 +782,7 @@ void UFMODAudioComponent::PlayInternal(EFMODSystemContext::Type Context, bool bR
 
         paramDesc = {};
         param = Settings.AmbientLPFParameter;
-        if (!param.IsEmpty() && AutomatedParameterCache.Find(*param))
+        if (!param.IsEmpty()) // ATMS patch: was also AutomatedParameterCache.Find (editor-only)
         {
             if (EventDesc->getParameterDescriptionByName(TCHAR_TO_UTF8(*param), &paramDesc) == FMOD_OK)
             {
