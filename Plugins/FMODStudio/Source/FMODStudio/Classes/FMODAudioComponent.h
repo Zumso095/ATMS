@@ -98,10 +98,28 @@ struct FFMODOcclusionDetails
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="FMOD|Occlusion", meta=(EditCondition = "bEnableOcclusion"))
     bool bUseComplexCollisionForOcclusion;
 
+    // ATMS patch: graded + smoothed occlusion. Occlusion parameter = fraction of blocked rays (0..1).
+    /** Number of rays (1 = original binary behaviour). Center ray + ring of offset rays. <= 0 uses default (5). */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FMOD|Occlusion", meta = (EditCondition = "bEnableOcclusion", ClampMin = "1", ClampMax = "9"))
+    int32 NumOcclusionRays;
+    /** Offset of ring rays from the center ray, in cm. <= 0 uses default (40). */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FMOD|Occlusion", meta = (EditCondition = "bEnableOcclusion", ClampMin = "0.0", Units = "cm"))
+    float OcclusionRaySpread;
+    /** Time (s) for the occlusion value to (almost) reach a new target. <= 0 uses default (0.25). */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FMOD|Occlusion", meta = (EditCondition = "bEnableOcclusion", ClampMin = "0.0", Units = "s"))
+    float OcclusionSmoothTime;
+    /** Seconds between occlusion trace updates. <= 0 uses default (0.1). */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FMOD|Occlusion", meta = (EditCondition = "bEnableOcclusion", ClampMin = "0.0", Units = "s"))
+    float OcclusionUpdateInterval;
+
     FFMODOcclusionDetails()
         : bEnableOcclusion(false)
         , OcclusionTraceChannel(ECC_Visibility)
         , bUseComplexCollisionForOcclusion(false)
+        , NumOcclusionRays(5)
+        , OcclusionRaySpread(40.0f)
+        , OcclusionSmoothTime(0.25f)
+        , OcclusionUpdateInterval(0.1f)
     {}
 };
 
@@ -361,6 +379,12 @@ private:
     /** Update attenuation if we have it set. */
     void UpdateAttenuation();
 
+    // ATMS patch: graded occlusion.
+    /** Trace rays to the listener and update OcclusionTarget (respects OcclusionUpdateInterval unless not yet initialized). */
+    void UpdateOcclusionTarget();
+    /** Move OcclusionCurrent towards OcclusionTarget and send it to the event. */
+    void UpdateOcclusionSmoothing(float DeltaTime);
+
     /** Apply Volume and LPF into event. */
     void ApplyVolumeLPF();
 
@@ -430,6 +454,12 @@ private:
     float LastLPF;
     /** Was the object occluded in the previous frame. */
     bool wasOccluded;
+    // ATMS patch: graded occlusion state.
+    float OcclusionTarget;
+    float OcclusionCurrent;
+    float OcclusionLastSent;
+    double OcclusionLastTraceTime;
+    bool bOcclusionInitialized;
     /** Stored ID of the Occlusion parameter of the Event (if applicable). */
     FMOD_STUDIO_PARAMETER_ID OcclusionID;
     /** Stored ID of the Volume parameter of the Event (if applicable). */
