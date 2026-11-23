@@ -11,6 +11,7 @@
 #include "Misc/Paths.h"
 #include "Misc/ScopeLock.h"
 #include "Components/BillboardComponent.h"
+#include "Components/PrimitiveComponent.h" // ATMS patch: multi-wall occlusion
 #if WITH_EDITORONLY_DATA
 #include "Engine/Texture2D.h"
 #endif
@@ -290,7 +291,8 @@ void UFMODAudioComponent::UpdateAttenuation()
 }
 
 // ATMS patch: graded occlusion. Casts a center ray plus a ring of offset rays from the source to the
-// nearest listener; the Occlusion parameter is the fraction of blocked rays, smoothed over time in Tick.
+// nearest listener; each ray scores 1 - (1 - OcclusionPerWall)^Walls, the Occlusion parameter is the average
+// over rays, smoothed over time in Tick.
 void UFMODAudioComponent::UpdateOcclusionTarget()
 {
     UWorld *World = GetWorld();
@@ -317,7 +319,30 @@ void UFMODAudioComponent::UpdateOcclusionTarget()
     const int32 NumRays = OcclusionDetails.NumOcclusionRays > 0 ? FMath::Clamp(OcclusionDetails.NumOcclusionRays, 1, 9) : 5;
     const float Spread = OcclusionDetails.OcclusionRaySpread > 0.0f ? OcclusionDetails.OcclusionRaySpread : 40.0f;
 
-    int32 Blocked = World->LineTraceTestByChannel(Source, ListenerLoc, Channel, Params) ? 1 : 0;
+    const float PerWall = OcclusionDetails.OcclusionPerWall > 0.0f ? FMath::Min(OcclusionDetails.OcclusionPerWall, 1.0f) : 0.5f;
+    const int32 MaxWalls = OcclusionDetails.MaxOcclusionWalls > 0 ? FMath::Clamp(OcclusionDetails.MaxOcclusionWalls, 1, 8) : 4;
+
+    // Counts walls between Start and End: after each hit the hit component is ignored and the ray is traced again.
+    // Limitation: one mesh that forms several walls (e.g. a whole room as one static mesh) counts as one wall.
+    auto TraceRay = [&](const FVector &Start, const FVector &End) -> float
+    {
+        FCollisionQueryParams RayParams = Params;
+        int32 Walls = 0;
+        FHitResult Hit;
+        while (Walls < MaxWalls && World->LineTraceSingleByChannel(Hit, Start, End, Channel, RayParams))
+        {
+            ++Walls;
+            UPrimitiveComponent *HitComp = Hit.GetComponent();
+            if (!HitComp)
+            {
+                break;
+            }
+            RayParams.AddIgnoredComponent(HitComp);
+        }
+        return 1.0f - FMath::Pow(1.0f - PerWall, static_cast<float>(Walls));
+    };
+
+    float Blocked = TraceRay(Source, ListenerLoc);
 
     const FVector Dir = (ListenerLoc - Source).GetSafeNormal();
     if (NumRays > 1 && !Dir.IsNearlyZero())
@@ -338,15 +363,12 @@ void UFMODAudioComponent::UpdateOcclusionTarget()
             // and use half the offset at the source end so rays don't start inside nearby walls.
             FVector StartOffset = Offset * 0.5f;
             StartOffset.Z = FMath::Max(StartOffset.Z, 0.0f);
-            if (World->LineTraceTestByChannel(Source + StartOffset, ListenerLoc + Offset, Channel, Params))
-            {
-                ++Blocked;
-            }
+            Blocked += TraceRay(Source + StartOffset, ListenerLoc + Offset);
         }
     }
 
     const int32 TotalRays = Dir.IsNearlyZero() ? 1 : NumRays;
-    OcclusionTarget = static_cast<float>(Blocked) / static_cast<float>(TotalRays);
+    OcclusionTarget = Blocked / static_cast<float>(TotalRays);
     wasOccluded = OcclusionTarget > 0.0f;
 
     if (!bOcclusionInitialized)

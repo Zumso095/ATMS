@@ -111,6 +111,13 @@ struct FFMODOcclusionDetails
     /** Seconds between occlusion trace updates. <= 0 uses default (0.1). */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FMOD|Occlusion", meta = (EditCondition = "bEnableOcclusion", ClampMin = "0.0", Units = "s"))
     float OcclusionUpdateInterval;
+    /** Occlusion added by each wall a ray passes through: ray value = 1 - (1 - PerWall)^Walls.
+     *  0.5 -> 1 wall 0.5, 2 walls 0.75, 3 walls 0.875. 1 = original behaviour (any wall fully occludes). <= 0 uses default (0.5). */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FMOD|Occlusion", meta = (EditCondition = "bEnableOcclusion", ClampMin = "0.0", ClampMax = "1.0"))
+    float OcclusionPerWall;
+    /** Max walls counted per ray (each extra wall costs one more trace). <= 0 uses default (4). */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FMOD|Occlusion", meta = (EditCondition = "bEnableOcclusion", ClampMin = "1", ClampMax = "8"))
+    int32 MaxOcclusionWalls;
 
     FFMODOcclusionDetails()
         : bEnableOcclusion(false)
@@ -120,6 +127,8 @@ struct FFMODOcclusionDetails
         , OcclusionRaySpread(40.0f)
         , OcclusionSmoothTime(0.25f)
         , OcclusionUpdateInterval(0.1f)
+        , OcclusionPerWall(0.5f)
+        , MaxOcclusionWalls(4)
     {}
 };
 
