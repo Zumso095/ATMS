@@ -11,6 +11,7 @@
 #include "Misc/Paths.h"
 #include "Misc/ScopeLock.h"
 #include "Components/BillboardComponent.h"
+#include "Components/PrimitiveComponent.h" // ATMS patch: multi-wall occlusion
 #if WITH_EDITORONLY_DATA
 #include "Engine/Texture2D.h"
 #endif
@@ -36,6 +37,11 @@ UFMODAudioComponent::UFMODAudioComponent(const FObjectInitializer &ObjectInitial
     , LastVolume(1.0f)
     , LastLPF(MAX_FILTER_FREQUENCY)
     , wasOccluded(false)
+    , OcclusionTarget(0.0f)
+    , OcclusionCurrent(0.0f)
+    , OcclusionLastSent(-1.0f)
+    , OcclusionLastTraceTime(0.0)
+    , bOcclusionInitialized(false)
     , OcclusionID()
     , AmbientVolumeID()
     , AmbientLPFID()
@@ -275,23 +281,126 @@ void UFMODAudioComponent::UpdateAttenuation()
     // Use occlusion part of settings
     if (OcclusionDetails.bEnableOcclusion && bApplyOcclusionParameter)
     {
-        static FName NAME_SoundOcclusion = FName(TEXT("SoundOcclusion"));
-        FCollisionQueryParams Params(NAME_SoundOcclusion, OcclusionDetails.bUseComplexCollisionForOcclusion, GetOwner());
-
-        const FVector &Location = GetComponentLocation();
-        const FFMODListener &Listener = GetStudioModule().GetNearestListener(Location);
-
-        bool bIsOccluded = GWorld->LineTraceTestByChannel(Location, Listener.Transform.GetLocation(), OcclusionDetails.OcclusionTraceChannel, Params);
-
-        if (bIsOccluded != wasOccluded)
-        {
-            StudioInstance->setParameterByID(OcclusionID, bIsOccluded ? 1.0f : 0.0f);
-            wasOccluded = bIsOccluded;
-        }
+        UpdateOcclusionTarget();
     }
     else
     {
         wasOccluded = false;
+        bOcclusionInitialized = false;
+    }
+}
+
+// ATMS patch: graded occlusion. Casts a center ray plus a ring of offset rays from the source to the
+// nearest listener; each ray scores 1 - (1 - OcclusionPerWall)^Walls, the Occlusion parameter is the average
+// over rays, smoothed over time in Tick.
+void UFMODAudioComponent::UpdateOcclusionTarget()
+{
+    UWorld *World = GetWorld();
+    if (!World || !StudioInstance)
+    {
+        return;
+    }
+
+    const float Interval = OcclusionDetails.OcclusionUpdateInterval > 0.0f ? OcclusionDetails.OcclusionUpdateInterval : 0.1f;
+    const double Now = World->GetTimeSeconds();
+    if (bOcclusionInitialized && (Now - OcclusionLastTraceTime) < Interval)
+    {
+        return;
+    }
+    OcclusionLastTraceTime = Now;
+
+    static FName NAME_SoundOcclusion = FName(TEXT("SoundOcclusion"));
+    FCollisionQueryParams Params(NAME_SoundOcclusion, OcclusionDetails.bUseComplexCollisionForOcclusion, GetOwner());
+
+    const FVector Source = GetComponentLocation();
+    const FVector ListenerLoc = GetStudioModule().GetNearestListener(Source).Transform.GetLocation();
+    const ECollisionChannel Channel = OcclusionDetails.OcclusionTraceChannel;
+
+    const int32 NumRays = OcclusionDetails.NumOcclusionRays > 0 ? FMath::Clamp(OcclusionDetails.NumOcclusionRays, 1, 9) : 5;
+    const float Spread = OcclusionDetails.OcclusionRaySpread > 0.0f ? OcclusionDetails.OcclusionRaySpread : 40.0f;
+
+    const float PerWall = OcclusionDetails.OcclusionPerWall > 0.0f ? FMath::Min(OcclusionDetails.OcclusionPerWall, 1.0f) : 0.5f;
+    const int32 MaxWalls = OcclusionDetails.MaxOcclusionWalls > 0 ? FMath::Clamp(OcclusionDetails.MaxOcclusionWalls, 1, 8) : 4;
+
+    // Counts walls between Start and End: after each hit the hit component is ignored and the ray is traced again.
+    // Limitation: one mesh that forms several walls (e.g. a whole room as one static mesh) counts as one wall.
+    auto TraceRay = [&](const FVector &Start, const FVector &End) -> float
+    {
+        FCollisionQueryParams RayParams = Params;
+        int32 Walls = 0;
+        FHitResult Hit;
+        while (Walls < MaxWalls && World->LineTraceSingleByChannel(Hit, Start, End, Channel, RayParams))
+        {
+            ++Walls;
+            UPrimitiveComponent *HitComp = Hit.GetComponent();
+            if (!HitComp)
+            {
+                break;
+            }
+            RayParams.AddIgnoredComponent(HitComp);
+        }
+        return 1.0f - FMath::Pow(1.0f - PerWall, static_cast<float>(Walls));
+    };
+
+    float Blocked = TraceRay(Source, ListenerLoc);
+
+    const FVector Dir = (ListenerLoc - Source).GetSafeNormal();
+    if (NumRays > 1 && !Dir.IsNearlyZero())
+    {
+        FVector Right = FVector::CrossProduct(Dir, FVector::UpVector).GetSafeNormal();
+        if (Right.IsNearlyZero())
+        {
+            Right = FVector::CrossProduct(Dir, FVector::ForwardVector).GetSafeNormal();
+        }
+        const FVector Up = FVector::CrossProduct(Right, Dir);
+
+        const int32 RingCount = NumRays - 1;
+        for (int32 i = 0; i < RingCount; ++i)
+        {
+            const float Angle = (2.0f * PI * i) / RingCount;
+            const FVector Offset = (Up * FMath::Cos(Angle) + Right * FMath::Sin(Angle)) * Spread;
+            // Never push the start point downwards (sources like footsteps sit on the floor),
+            // and use half the offset at the source end so rays don't start inside nearby walls.
+            FVector StartOffset = Offset * 0.5f;
+            StartOffset.Z = FMath::Max(StartOffset.Z, 0.0f);
+            Blocked += TraceRay(Source + StartOffset, ListenerLoc + Offset);
+        }
+    }
+
+    const int32 TotalRays = Dir.IsNearlyZero() ? 1 : NumRays;
+    OcclusionTarget = Blocked / static_cast<float>(TotalRays);
+    wasOccluded = OcclusionTarget > 0.0f;
+
+    if (!bOcclusionInitialized)
+    {
+        // First evaluation after Play: snap, so one-shots (footsteps) start with the right value instead of fading in.
+        OcclusionCurrent = OcclusionTarget;
+        OcclusionLastSent = OcclusionCurrent;
+        StudioInstance->setParameterByID(OcclusionID, OcclusionCurrent);
+        bOcclusionInitialized = true;
+    }
+}
+
+void UFMODAudioComponent::UpdateOcclusionSmoothing(float DeltaTime)
+{
+    if (!bOcclusionInitialized || !StudioInstance || DeltaTime <= 0.0f)
+    {
+        return;
+    }
+
+    const float SmoothTime = OcclusionDetails.OcclusionSmoothTime > 0.0f ? OcclusionDetails.OcclusionSmoothTime : 0.25f;
+    // Exponential approach; ~95% of the way after SmoothTime.
+    const float Alpha = 1.0f - FMath::Exp(-3.0f * DeltaTime / SmoothTime);
+    OcclusionCurrent = FMath::Lerp(OcclusionCurrent, OcclusionTarget, Alpha);
+    if (FMath::Abs(OcclusionCurrent - OcclusionTarget) < 0.001f)
+    {
+        OcclusionCurrent = OcclusionTarget;
+    }
+
+    if (FMath::Abs(OcclusionCurrent - OcclusionLastSent) > 0.005f || (OcclusionCurrent == OcclusionTarget && OcclusionLastSent != OcclusionTarget))
+    {
+        StudioInstance->setParameterByID(OcclusionID, OcclusionCurrent);
+        OcclusionLastSent = OcclusionCurrent;
     }
 }
 
@@ -443,6 +552,13 @@ void UFMODAudioComponent::TickComponent(float DeltaTime, enum ELevelTick TickTyp
                 UpdateInteriorVolumes();
                 UpdateAttenuation();
                 ApplyVolumeLPF();
+            }
+
+            // ATMS patch: graded occlusion needs regular updates (walls/doors and smoothing), not only on movement.
+            if (OcclusionDetails.bEnableOcclusion && bApplyOcclusionParameter)
+            {
+                UpdateOcclusionTarget();
+                UpdateOcclusionSmoothing(DeltaTime);
             }
 
             if (bEnableTimelineCallbacks)
@@ -754,13 +870,13 @@ void UFMODAudioComponent::PlayInternal(EFMODSystemContext::Type Context, bool bR
         if (OcclusionDetails.bEnableOcclusion)
         {
             param = Settings.OcclusionParameter;
-            if (!param.IsEmpty() && AutomatedParameterCache.Find(*param))
+            // ATMS patch: query the runtime EventDesc directly. AutomatedParameterCache is only filled in editor
+            // (OnRegister is WITH_EDITORONLY_DATA, GetParameterDescriptions uses the Auditioning system),
+            // so in packaged builds occlusion was silently disabled.
+            if (!param.IsEmpty() && EventDesc->getParameterDescriptionByName(TCHAR_TO_UTF8(*param), &paramDesc) == FMOD_OK)
             {
-                if (EventDesc->getParameterDescriptionByName(TCHAR_TO_UTF8(*param), &paramDesc) == FMOD_OK)
-                {
-                    OcclusionID = paramDesc.id;
-                    bApplyOcclusionParameter = true;
-                }
+                OcclusionID = paramDesc.id;
+                bApplyOcclusionParameter = true;
             }
             else
             {
@@ -770,7 +886,7 @@ void UFMODAudioComponent::PlayInternal(EFMODSystemContext::Type Context, bool bR
 
         paramDesc = {};
         param = Settings.AmbientVolumeParameter;
-        if (!param.IsEmpty() && AutomatedParameterCache.Find(*param))
+        if (!param.IsEmpty()) // ATMS patch: was also AutomatedParameterCache.Find (editor-only)
         {
             if (EventDesc->getParameterDescriptionByName(TCHAR_TO_UTF8(*param), &paramDesc) == FMOD_OK)
             {
@@ -782,7 +898,7 @@ void UFMODAudioComponent::PlayInternal(EFMODSystemContext::Type Context, bool bR
 
         paramDesc = {};
         param = Settings.AmbientLPFParameter;
-        if (!param.IsEmpty() && AutomatedParameterCache.Find(*param))
+        if (!param.IsEmpty()) // ATMS patch: was also AutomatedParameterCache.Find (editor-only)
         {
             if (EventDesc->getParameterDescriptionByName(TCHAR_TO_UTF8(*param), &paramDesc) == FMOD_OK)
             {
@@ -870,6 +986,7 @@ void UFMODAudioComponent::Stop()
     }
 
     wasOccluded = false;
+    bOcclusionInitialized = false; // ATMS patch: next Play snaps occlusion instead of fading from the old value
 }
 
 void UFMODAudioComponent::Release()

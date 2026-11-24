@@ -23,7 +23,7 @@ class LOMCHARACTERSYSTEM_API ALomCharacter : public ACharacter, public IAbilityS
 
 public:
 	// Sets default values for this character's properties
-	ALomCharacter();
+	ALomCharacter(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 
 public:
