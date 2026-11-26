@@ -27,8 +27,47 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character Movement (Networking)")
 	bool bServerTickRemotePoseEveryFrame = true;
 
+	/**
+	 * Server only: after a remote client touched a physics item it owns (e.g. a pushed box handed to it
+	 * via SetOwner), accept the client's position for this many seconds instead of correcting it.
+	 * The server sees client-owned items late (SmoothSync interpolation), so its capsule would hit them
+	 * and rubber-band the pusher. 0 disables.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character Movement (Networking)", meta = (ClampMin = "0", Units = "s"))
+	float OwnedPushClientAuthTime = 0.5f;
+
+	/** Server only: largest client/server position difference accepted during OwnedPushClientAuthTime. Bigger errors are corrected as usual. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Character Movement (Networking)", meta = (ClampMin = "0", Units = "cm"))
+	float OwnedPushMaxClientError = 150.f;
+
 	virtual void TickCharacterPose(float DeltaTime) override;
+
+	virtual void ApplyImpactPhysicsForces(const FHitResult& Impact, const FVector& ImpactAcceleration, const FVector& ImpactVelocity) override;
+
+	using Super::ServerCheckClientError;
+	virtual bool ServerCheckClientError(float ClientTimeStamp, float DeltaTime, const FVector& Accel, const FVector& ClientWorldLocation, const FVector& RelativeClientLocation, FMovementBaseInterfaceData* ClientMovementBaseInterfaceData, FName ClientBaseBoneName, uint8 ClientMovementMode) override;
+
+	using Super::ServerMoveHandleClientError;
+	virtual void ServerMoveHandleClientError(float ClientTimeStamp, float DeltaTime, const FVector& Accel, const FVector& RelativeClientLocation, FMovementBaseInterfaceData* ClientMovementBaseInterfaceData, FName ClientBaseBoneName, uint8 ClientMovementMode) override;
+
+	using Super::ServerShouldUseAuthoritativePosition;
+	virtual bool ServerShouldUseAuthoritativePosition(float ClientTimeStamp, float DeltaTime, const FVector& Accel, const FVector& ClientWorldLocation, const FVector& RelativeClientLocation, FMovementBaseInterfaceData* ClientMovementBaseInterfaceData, FName ClientBaseBoneName, uint8 ClientMovementMode) override;
 
 private:
 	bool ShouldTickRemotePoseEveryFrame() const;
+
+	/** Server-side copy of a character controlled by a remote client. */
+	bool IsRemoteClientOnServer() const;
+
+	/** The hit is a physics-simulated body whose actor is owned by this character. */
+	bool IsOwnedPhysicsItem(const FHitResult& Impact) const;
+
+	/** Server: the remote client recently pushed an item it owns and its position is close enough to trust. */
+	bool ShouldAcceptClientPushPosition(const FVector& ClientWorldLocation) const;
+
+	/** World time of the last contact with an owned physics item (server only). */
+	double LastOwnedPushTime = -1.0;
+
+	/** Set when ServerShouldUseAuthoritativePosition accepted the client position because of an owned push. */
+	bool bAcceptedPushPositionThisMove = false;
 };
