@@ -71,6 +71,12 @@ void ULomQuickBarComponent::OnRep_SlotsChanged(const TArray<ULomInventoryItemIns
 	
 }
 
+void ULomQuickBarComponent::OnRep_CurrentSlotIndex(int32 OldIndex)
+{
+	// Slots may replicate in a later bunch, so the item can still be null here.
+	OnActiveSlotChanged.Broadcast(OldIndex, currentSlotIndex, GetItemFromSlot(currentSlotIndex));
+}
+
 // Called every frame
 void ULomQuickBarComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
@@ -156,8 +162,14 @@ ULomEquipmentItemInstance* ULomQuickBarComponent::ActivateSlotByIndex(int32 Inde
 			equipmentManager->UnEquipItem(Slots[currentSlotIndex]);
 
 		}
-		currentSlotIndex = Index;	
-		return equipmentManager->EquipItem(Slots[Index]);
+		const int32 oldIndex = currentSlotIndex;
+		currentSlotIndex = Index;
+		ULomEquipmentItemInstance* equipped = equipmentManager->EquipItem(Slots[Index]);
+		if (oldIndex != Index)
+		{
+			OnActiveSlotChanged.Broadcast(oldIndex, Index, Slots[Index]);
+		}
+		return equipped;
 	}
 	return nullptr;
 }

@@ -6,6 +6,7 @@
 #include "AbilitySystemComponent.h"
 #include "AbilitySystem/LomAbilitySet.h"
 #include "Equipment/LomEquipmentItemDefinition.h"
+#include "Equipment/LomEquipmentManagerComponent.h"
 #include <Net/UnrealNetwork.h>
 #include <Inventory/LomInventoryItemDefinition.h>
 #include <Inventory/InventoryFragment_EquippableItem.h>
@@ -249,6 +250,14 @@ void ULomEquipmentItemInstance::Equipped()
 	}
 
 	K2_Equipped();
+
+	if (owner)
+	{
+		if (ULomEquipmentManagerComponent* equipmentManager = owner->FindComponentByClass<ULomEquipmentManagerComponent>())
+		{
+			equipmentManager->OnItemEquipped.Broadcast(this, InventoryItemInstance);
+		}
+	}
 }
 
 void ULomEquipmentItemInstance::UnEquipped()
@@ -262,6 +271,14 @@ void ULomEquipmentItemInstance::UnEquipped()
 
 	}
 	K2_UnEquipped();
+
+	if (AActor* owner = GetOwnerActor())
+	{
+		if (ULomEquipmentManagerComponent* equipmentManager = owner->FindComponentByClass<ULomEquipmentManagerComponent>())
+		{
+			equipmentManager->OnItemUnequipped.Broadcast(this, InventoryItemInstance);
+		}
+	}
 }
 
 void ULomEquipmentItemInstance::ChangeSocket(FName SocketName, FTransform Transform, int32 ActorIndex)

@@ -14,7 +14,8 @@ class ULomEquipmentItemInstance;
  */
 class ULomInventoryItemInstance;
 
-
+// Fired from ULomEquipmentItemInstance::Equipped/UnEquipped: on the server right away, on clients from OnRep_EquippedItems.
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnEquipmentChangedDelegate, ULomEquipmentItemInstance*, EquipmentInstance, ULomInventoryItemInstance*, InventoryItemInstance);
 
 UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
 class LOMCHARACTERSYSTEM_API ULomEquipmentManagerComponent : public UPawnComponent
@@ -24,6 +25,12 @@ class LOMCHARACTERSYSTEM_API ULomEquipmentManagerComponent : public UPawnCompone
 public:
 	ULomEquipmentManagerComponent(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 	virtual void BeginPlay() override;
+
+	UPROPERTY(BlueprintAssignable)
+	FOnEquipmentChangedDelegate OnItemEquipped;
+
+	UPROPERTY(BlueprintAssignable)
+	FOnEquipmentChangedDelegate OnItemUnequipped;
 
 	UFUNCTION(BlueprintCallable)
 	ULomEquipmentItemInstance* EquipItem(ULomInventoryItemInstance* InventoryItem);

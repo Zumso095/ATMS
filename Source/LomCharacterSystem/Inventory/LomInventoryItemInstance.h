@@ -8,8 +8,14 @@
 #include "System/GameplayTagStack.h"
 #include "LomInventoryItemInstance.generated.h"
 
+class ULomInventoryItemInstance;
+
+// Fires when a tag stack count on this item changes (e.g. ammo).
+// Server: right after Add/Override/RemoveTagStack. Clients: when the replicated value arrives.
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_FourParams(FOnItemTagStackChanged, ULomInventoryItemInstance*, ItemInstance, FGameplayTag, Tag, int32, NewCount, int32, OldCount);
+
 /**
- * 
+ *
  */
 UCLASS(BlueprintType)
 class LOMCHARACTERSYSTEM_API ULomInventoryItemInstance : public UObject
@@ -39,6 +45,9 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void RemoveTagStack(FGameplayTag Tag, int32 Count);
+
+	UPROPERTY(BlueprintAssignable)
+	FOnItemTagStackChanged OnTagStackChanged;
 	//End TagStack
 
 	virtual void GetLifetimeReplicatedProps(TArray< class FLifetimeProperty >& OutLifetimeProps) const override;
@@ -48,6 +57,11 @@ private:
 	UPROPERTY(Replicated)
 	TSubclassOf<ULomInventoryItemDefinition> itemDefinition;
 
-	UPROPERTY(Replicated)
+	UPROPERTY(ReplicatedUsing = OnRep_TagStackContainer)
 	FGameplayTagStackContainer TagStackContainer;
+
+	UFUNCTION()
+	void OnRep_TagStackContainer(const FGameplayTagStackContainer& OldContainer);
+
+	void BroadcastIfChanged(FGameplayTag Tag, int32 OldCount);
 };

@@ -7,6 +7,16 @@
 #include "Engine/World.h"
 #include "GameFramework/Character.h"
 
+namespace LomCharacterMovement
+{
+	/**
+	 * Actor tag for server-simulated physics actors (e.g. B_Pickupable_Door) that clients cannot push
+	 * locally. While a remote client touches one, the server accepts the client's position instead of
+	 * correcting it; the server still pushes the actor itself.
+	 */
+	static const FName AcceptClientPushTag(TEXT("AcceptClientPush"));
+}
+
 bool ULomCharacterMovementComponent::IsRemoteClientOnServer() const
 {
 	return CharacterOwner
@@ -54,6 +64,19 @@ void ULomCharacterMovementComponent::ApplyImpactPhysicsForces(const FHitResult& 
 
 		// The owning client simulates and pushes this item; the server copy follows its replicated transform.
 		return;
+	}
+
+	// Server-simulated actor the client cannot push locally (door): keep the server push, but trust the client position.
+	if (Impact.bBlockingHit && IsRemoteClientOnServer())
+	{
+		const AActor* ImpactActor = Impact.GetActor();
+		if (ImpactActor && ImpactActor->ActorHasTag(LomCharacterMovement::AcceptClientPushTag))
+		{
+			if (const UWorld* World = GetWorld())
+			{
+				LastOwnedPushTime = World->GetTimeSeconds();
+			}
+		}
 	}
 
 	Super::ApplyImpactPhysicsForces(Impact, ImpactAcceleration, ImpactVelocity);
